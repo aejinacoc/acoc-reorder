@@ -6,11 +6,10 @@
 <title>ACOC 리오더 관리</title>
 <!-- SheetJS for xlsx parsing -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<!-- Firebase -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
+<!-- Firebase compat -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyAcWSCpwyK3-wgSE196rpc4E15y8Z2unUk",
   authDomain: "acoc-reorder.firebaseapp.com",
@@ -20,27 +19,27 @@ const firebaseConfig = {
   messagingSenderId: "977408906575",
   appId: "1:977408906575:web:420354107e003922aae13a"
 };
+firebase.initializeApp(firebaseConfig);
+const _db = firebase.database();
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+window._fbSave = function(orders) {
+  const obj = {};
+  orders.forEach(o => { obj[o.id] = o; });
+  _db.ref('orders').set(obj);
+};
+window._fbSaveCustomProducts = function(customProducts) {
+  const obj = {};
+  customProducts.forEach(p => { obj[p.code] = p; });
+  _db.ref('customProducts').set(obj);
+};
 
-// Firebase → 전역 노출
-window._fbDb = db;
-window._fbRef = ref;
-window._fbSet = set;
-window._fbRemove = remove;
-
-// orders 실시간 동기화
-const ordersRef = ref(db, 'orders');
-onValue(ordersRef, (snapshot) => {
+// 실시간 동기화
+_db.ref('orders').on('value', (snapshot) => {
   const data = snapshot.val();
   window.orders = data ? Object.values(data) : [];
   if (window.render) window.render();
 });
-
-// customProducts 실시간 동기화
-const cpRef = ref(db, 'customProducts');
-onValue(cpRef, (snapshot) => {
+_db.ref('customProducts').on('value', (snapshot) => {
   const data = snapshot.val();
   window.customProducts = data ? Object.values(data) : [];
   if (window.renderCustomProductList) window.renderCustomProductList();
@@ -475,20 +474,12 @@ function allProducts() {
   return [...PRODUCTS, ...customProducts];
 }
 
-// ── Firebase save ──────────────────────────────────────────────────────────
 function save() {
-  if (!window._fbDb) return;
-  // orders를 {id: order} 객체로 저장
-  const ordersObj = {};
-  orders.forEach(o => { ordersObj[o.id] = o; });
-  window._fbSet(window._fbRef(window._fbDb, 'orders'), ordersObj);
+  if (window._fbSave) window._fbSave(orders);
 }
 
 function saveCustomProducts() {
-  if (!window._fbDb) return;
-  const obj = {};
-  customProducts.forEach(p => { obj[p.code] = p; });
-  window._fbSet(window._fbRef(window._fbDb, 'customProducts'), obj);
+  if (window._fbSaveCustomProducts) window._fbSaveCustomProducts(customProducts);
 }
 
 // ── Date utils ────────────────────────────────────────────────────────────
