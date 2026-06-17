@@ -32,19 +32,6 @@ window._fbSaveCustomProducts = function(customProducts) {
   customProducts.forEach(p => { obj[p.code] = p; });
   _db.ref('customProducts').set(obj);
 };
-
-// 실시간 동기화
-_db.ref('orders').on('value', (snapshot) => {
-  const data = snapshot.val();
-  window.orders = data ? Object.values(data) : [];
-  if (window.render) window.render();
-  else setTimeout(() => { if (window.render) window.render(); }, 500);
-});
-_db.ref('customProducts').on('value', (snapshot) => {
-  const data = snapshot.val();
-  window.customProducts = data ? Object.values(data) : [];
-  if (window.renderCustomProductList) window.renderCustomProductList();
-});
 </script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1287,16 +1274,26 @@ function showToast(msg){
 window.render = render;
 window.renderCustomProductList = renderCustomProductList;
 
-// 페이지 로드 후 Firebase에서 데이터 강제 재요청
-setTimeout(() => {
-  _db.ref('orders').once('value').then(snapshot => {
-    const data = snapshot.val();
-    if (data) {
-      window.orders = Object.values(data);
-      render();
+// DOM 완전 로드 후 Firebase 연결
+document.addEventListener('DOMContentLoaded', () => {
+  // 혹시 _db가 아직 없으면 대기
+  const tryConnect = () => {
+    if (typeof _db === 'undefined') {
+      setTimeout(tryConnect, 200);
+      return;
     }
-  });
-}, 300);
+    _db.ref('orders').on('value', (snapshot) => {
+      const data = snapshot.val();
+      orders = data ? Object.values(data) : [];
+      render();
+    });
+    _db.ref('customProducts').on('value', (snapshot) => {
+      const data = snapshot.val();
+      customProducts = data ? Object.values(data) : [];
+    });
+  };
+  tryConnect();
+});
 
 // ── Event listeners ───────────────────────────────────────────────────────
 document.addEventListener('click',e=>{
