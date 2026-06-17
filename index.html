@@ -38,6 +38,7 @@ _db.ref('orders').on('value', (snapshot) => {
   const data = snapshot.val();
   window.orders = data ? Object.values(data) : [];
   if (window.render) window.render();
+  else setTimeout(() => { if (window.render) window.render(); }, 500);
 });
 _db.ref('customProducts').on('value', (snapshot) => {
   const data = snapshot.val();
@@ -1285,6 +1286,17 @@ function showToast(msg){
 // Firebase module에서 접근할 수 있도록 전역 노출
 window.render = render;
 window.renderCustomProductList = renderCustomProductList;
+
+// 페이지 로드 후 Firebase에서 데이터 강제 재요청
+setTimeout(() => {
+  _db.ref('orders').once('value').then(snapshot => {
+    const data = snapshot.val();
+    if (data) {
+      window.orders = Object.values(data);
+      render();
+    }
+  });
+}, 300);
 
 // ── Event listeners ───────────────────────────────────────────────────────
 document.addEventListener('click',e=>{
