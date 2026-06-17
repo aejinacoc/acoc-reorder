@@ -333,6 +333,11 @@ td.center { text-align:center; }
         style="display:none;background:var(--red-bg);color:var(--red);border-color:#e8c0c0;">
         🗑 선택 삭제 <span id="delete-count"></span>
       </button>
+      <button class="btn btn-outline btn-sm" onclick="backupJSON()">💾 백업</button>
+      <label class="btn btn-outline btn-sm" style="cursor:pointer" title="백업 JSON 파일로 복원">
+        📂 복원
+        <input type="file" accept=".json" onchange="restoreJSON(event)" style="display:none">
+      </label>
       <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ CSV 내보내기</button>
     </div>
   </div>
@@ -1155,6 +1160,57 @@ function modalProductKeydown(e){
   else if(e.key==='ArrowUp'){e.preventDefault();acSelectedIdx=Math.max(acSelectedIdx-1,0);hlAc();}
   else if(e.key==='Enter'){e.preventDefault();if(acSelectedIdx>=0&&list._res)selectAc(acSelectedIdx);else addModalProduct();}
   else if(e.key==='Escape'){list.classList.remove('open');}
+}
+
+// ── Backup / Restore ──────────────────────────────────────────────────────
+function backupJSON() {
+  const data = {
+    orders,
+    customProducts,
+    exportedAt: new Date().toISOString(),
+    version: 2
+  };
+  const json = JSON.stringify(data, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = `acoc_reorder_backup_${today()}.json`;
+  a.click();
+  showToast('💾 백업 파일이 다운로드됐습니다');
+}
+
+function restoreJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      // v2 백업 형식 또는 단순 배열 형식 모두 지원
+      let restoredOrders = [];
+      let restoredProducts = [];
+      if (Array.isArray(data)) {
+        // 단순 배열 → orders로 처리
+        restoredOrders = data;
+      } else if (data.orders) {
+        restoredOrders = Array.isArray(data.orders) ? data.orders : Object.values(data.orders);
+        restoredProducts = data.customProducts
+          ? (Array.isArray(data.customProducts) ? data.customProducts : Object.values(data.customProducts))
+          : [];
+      }
+      if (!restoredOrders.length) { alert('복원할 데이터가 없습니다'); return; }
+      if (!confirm(`${restoredOrders.length}건의 리오더 데이터를 복원하시겠습니까?\n기존 데이터는 덮어씌워집니다.`)) return;
+
+      orders = restoredOrders;
+      if (restoredProducts.length) customProducts = restoredProducts;
+      save();
+      if (restoredProducts.length) saveCustomProducts();
+      showToast(`✓ ${restoredOrders.length}건 복원됐습니다`);
+    } catch(err) {
+      alert('파일을 읽을 수 없습니다: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
 }
 
 // ── Export CSV ────────────────────────────────────────────────────────────
