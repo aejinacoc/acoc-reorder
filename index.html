@@ -21,18 +21,6 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const _db = firebase.database();
-window._db = _db;
-
-window._fbSave = function(orders) {
-  const obj = {};
-  orders.forEach(o => { obj[o.id] = o; });
-  _db.ref('orders').set(obj);
-};
-window._fbSaveCustomProducts = function(customProducts) {
-  const obj = {};
-  customProducts.forEach(p => { obj[p.code] = p; });
-  _db.ref('customProducts').set(obj);
-};
 </script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -322,10 +310,6 @@ td.center { text-align:center; }
         🗑 선택 삭제 <span id="delete-count"></span>
       </button>
       <button class="btn btn-outline btn-sm" onclick="backupJSON()">💾 백업</button>
-      <label class="btn btn-outline btn-sm" style="cursor:pointer">
-        📂 복원
-        <input type="file" accept=".json" onchange="restoreJSON(event)" style="display:none">
-      </label>
       <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ CSV 내보내기</button>
     </div>
   </div>
@@ -451,7 +435,6 @@ td.center { text-align:center; }
 const PRODUCTS = [{"code":"00003","name":"[불량] 블루밍 백팩_블랙"},{"code":"00004","name":"[불량] 블루밍 백팩_딥블루"},{"code":"00010","name":"샘플세일_5000"},{"code":"00011","name":"샘플세일_10000"},{"code":"026AC698BL","name":"케이스위스 도트 버블 파우치_글로시 블루"},{"code":"026AC698BR","name":"케이스위스 도트 버블 파우치_글로시 브라운"},{"code":"026AC698SV","name":"케이스위스 도트 버블 파우치_글로시 실버"},{"code":"026BG697BL","name":"케이스위스 도트 버블백_글로시 블루"},{"code":"026BG697BR","name":"케이스위스 도트 버블백_글로시 브라운"},{"code":"026BG697SV","name":"케이스위스 도트 버블백_글로시 실버"},{"code":"100002","name":"크루아상M_솔트그레이"},{"code":"100003","name":"크루아상M_민트"},{"code":"100007","name":"크루아상L_블랙"},{"code":"100015","name":"크루아상M_커스타드베이지"},{"code":"100017","name":"스몰퍼피토트_오렌지"},{"code":"100020","name":"글로시하프문_크림"},{"code":"100021","name":"글로시하프문_블랙"},{"code":"100082","name":"드로스트링_네이비"},{"code":"100094","name":"퍼피하프문_블랙"},{"code":"100104","name":"멀티포켓 백팩_블랙"},{"code":"100121","name":"글로시라지쇼퍼_크림"},{"code":"100123","name":"글로시하프문_그린"},{"code":"100124","name":"글로시하프문_카멜"},{"code":"100125","name":"스톤 크루아상M_블랙"},{"code":"100127","name":"스톤 크루아상M_그레이"},{"code":"100129","name":"스톤 크루아상M_머스타드"},{"code":"100150","name":"립스퀘어_코랄"},{"code":"100157","name":"시폰라운드_라임"},{"code":"100159","name":"멀티포켓 백팩_글로시블랙"},{"code":"100163","name":"오버사이즈 메신저백_글로시네이비"},{"code":"100164","name":"오버사이즈 메신저백_크림"},{"code":"100165","name":"렉탱글 메신저백_글로시블랙"},{"code":"100169","name":"크리즈스몰_라벤더"},{"code":"100183","name":"립라운드_코랄"},{"code":"100192","name":"오버사이즈 메신저백_실버"},{"code":"100210","name":"패디드스몰토트_그레이"},{"code":"100211","name":"패디드스몰토트_아이보리"},{"code":"100224","name":"소프트퍼토트백_블랙"},{"code":"100225","name":"소프트퍼토트백_더스티블루"},{"code":"100240","name":"다이애그널 버튼셔츠_화이트"},{"code":"100241","name":"다이애그널 버튼셔츠_핑크"},{"code":"100242","name":"턱스트링 스커트_블랙"},{"code":"100243","name":"턱스트링 스커트_블루"},{"code":"100244","name":"턱스트링 스커트_그레이"},{"code":"100250","name":"패널드레스_민트"},{"code":"100251","name":"티어드밴딩백팩_블랙"},{"code":"100252","name":"티어드밴딩백팩_차콜"},{"code":"100254","name":"티어드밴딩백팩_레몬"},{"code":"100260","name":"M티어드크로스_핑크"},{"code":"100264","name":"라운드월렛_네이비"},{"code":"100266","name":"아보카도 슬링백_블랙"},{"code":"100267","name":"아보카도 슬링백_그레이"},{"code":"100268","name":"아보카도 슬링백_라벤더"},{"code":"100270","name":"에센셜 크로스백_그레이"},{"code":"100278","name":"티어드밴딩백팩_실버"},{"code":"100300","name":"스트롤백_실버"},{"code":"100301","name":"오버사이즈 메신저백_무광블랙"},{"code":"100303","name":"미니티어드_그레이"},{"code":"100304","name":"미니티어드_크림"},{"code":"100305","name":"미니티어드_그린"},{"code":"100307","name":"실키 티어드 버캣백_그레이"},{"code":"100312","name":"패딩 랩스커트_블랙"},{"code":"100314","name":"패딩 랩스커트_아이보리"},{"code":"100315","name":"벌룬블루종_블랙"},{"code":"100316","name":"벌룬블루종_브라운"},{"code":"100322","name":"메리노울 가디건_그린"},{"code":"100324","name":"메리노울 핸드워머_그레이"},{"code":"100325","name":"메리노울 핸드워머_그린"},{"code":"100326","name":"메리노울 핸드워머_바이올렛"},{"code":"100330","name":"부클 비니_블랙"},{"code":"100334","name":"디태쳐블드레스_딥그린"},{"code":"100335","name":"디태쳐블드레스_퍼플"},{"code":"100336","name":"립보스턴 라지백_블랙"},{"code":"100338","name":"립보스턴 라지백_실버"},{"code":"100339","name":"립보스턴 라지백_퍼플"},{"code":"100343","name":"립보스턴 스몰백_퍼플"},{"code":"100344","name":"스티치 라지 더플백_블랙"},{"code":"100347","name":"스티치 스몰 더플백_블랙"},{"code":"100349","name":"스티치 스몰 더플백_그레이"},{"code":"100350","name":"커브퀼팅드크로스백_블랙"},{"code":"100356","name":"개더드 백팩_오렌지러스트"},{"code":"100359","name":"박스 월렛백_퍼플"},{"code":"100362","name":"패딩 버켓햇_블랙"},{"code":"100363","name":"패딩 버켓햇_베이지"},{"code":"100377","name":"글로시하프문_블랙_C"},{"code":"100378","name":"글로시하프문_크림_C"},{"code":"100379","name":"글로시하프문_그레이_C"},{"code":"100383","name":"엠커브퀼티드백_블랙"},{"code":"100385","name":"엠커브퀼티드백_더스티블루"},{"code":"100387","name":"멀티포켓 백팩_글로시블랙_C"},{"code":"100388","name":"멀티포켓 백팩_글로시네이비_C"},{"code":"100389","name":"멀티포켓 백팩_실버_C"},{"code":"100393","name":"렉탱글 메신저백_크림_C"},{"code":"100394","name":"랩탑 클러치 13_블랙"},{"code":"100397","name":"랩탑 클러치 13_아이보리"},{"code":"100401","name":"랩탑 클러치 16_아이보리"},{"code":"100402","name":"개더드 미니 백팩_블랙"},{"code":"100403","name":"개더드 미니 백팩_딥그린"},{"code":"100404","name":"개더드 미니 백팩_오렌지러스트"},{"code":"100409","name":"레이크 13 랩탑 클러치_트리플블랙"},{"code":"100411","name":"레이크 13 랩탑 클러치_실버"},{"code":"100413","name":"레이크 16 랩탑 클러치_트리플블랙"},{"code":"100416","name":"레이크 16 랩탑 클러치_크림"},{"code":"100417","name":"미니티어드_라이트그린"},{"code":"100418","name":"미니티어드_실버"},{"code":"100420","name":"개더드 미니 백팩_베이지"},{"code":"100423","name":"브리즈 롱 티셔츠_블루"},{"code":"100424","name":"브리즈 롱 티셔츠_퍼플"},{"code":"100425","name":"브리즈 부츠 레깅스_블랙"},{"code":"100426","name":"브리즈 부츠 레깅스_아이보리"},{"code":"100427","name":"브리즈 부츠 레깅스_블루"},{"code":"100428","name":"패스 스웻셔츠_아이보리"},{"code":"100430","name":"패스 스웻셔츠_퍼플"},{"code":"100432","name":"M티어드크로스_레몬_C"},{"code":"100433","name":"M티어드크로스_블랙_C"},{"code":"100434","name":"M티어드크로스_블루_C"},{"code":"100435","name":"M티어드크로스_실버_C"},{"code":"100436","name":"M티어드크로스_차콜_C"},{"code":"100437","name":"티어드밴딩백팩_글로시블랙_C"},{"code":"100442","name":"트와일라잇 나일론 블루종_블랙"},{"code":"100443","name":"트와일라잇 나일론 블루종_아이보리"},{"code":"100444","name":"트와일라잇 나일론 블루종_블루"},{"code":"100445","name":"헤이즈 쉬어 랩 스커트_블랙"},{"code":"100446","name":"헤이즈 쉬어 랩 스커트_그레이"},{"code":"100447","name":"헤이즈 쉬어 랩 스커트_핑크"},{"code":"100448","name":"벨리 립 가디건_블랙"},{"code":"100449","name":"벨리 립 가디건_아이보리"},{"code":"100451","name":"플로라 타이 베스트_블랙"},{"code":"100452","name":"플로라 타이 베스트_아이보리"},{"code":"100453","name":"플로라 타이 베스트_블루"},{"code":"100457","name":"원더 크로스백_라이트퍼플"},{"code":"100458","name":"페블 숄더백_블랙"},{"code":"100461","name":"페블 월렛_블랙"},{"code":"100462","name":"페블 월렛_네이비"},{"code":"100464","name":"페블 월렛_실버"},{"code":"100465","name":"페블 월렛_퍼플"},{"code":"100480","name":"페블 목걸이_실버"},{"code":"100481","name":"페블 목걸이_골드"},{"code":"100482","name":"펄 핀참_실버"},{"code":"100483","name":"문 볼 키링_실버"},{"code":"100495","name":"글로우 라지 백_퍼플"},{"code":"100496","name":"미니 에코백_퍼플"},{"code":"1004961","name":"미니 에코백_그린"},{"code":"100498","name":"드로스트링_블랙_C"},{"code":"100499","name":"드로스트링_더스티블루_C"},{"code":"100500","name":"드로스트링_마티니올리브_C"},{"code":"100502","name":"헤이즈 쉬어 랩 스커트_화이트"},{"code":"100505","name":"클라우드 슬리브리스탑_민트"},{"code":"100506","name":"클라우드 슬리브리스탑_차콜"},{"code":"100507","name":"티어드밴딩백팩_레몬_C"},{"code":"100508","name":"티어드밴딩백팩_블랙_C"},{"code":"100509","name":"티어드밴딩백팩_블루_C"},{"code":"100510","name":"티어드밴딩백팩_실버(실버끈)_C"},{"code":"100511","name":"윈디 벌룬 드레스_차콜"},{"code":"100512","name":"윈디 벌룬 드레스_블루"},{"code":"100513","name":"윈디 벌룬 드레스_화이트"},{"code":"100519","name":"원더러스트 티셔츠_퍼플"},{"code":"100520","name":"원더러스트 티셔츠_화이트"},{"code":"100521","name":"원더러스트 티셔츠_네이비"},{"code":"100522","name":"원더러스트 볼캡_퍼플"},{"code":"100523","name":"원더러스트 볼캡_그레이"},{"code":"100524","name":"원더러스트 볼캡_네이비"},{"code":"100525","name":"선플라워 캡_블랙"},{"code":"100526","name":"선플라워 캡_블루"},{"code":"100527","name":"선플라워 캡_민트"},{"code":"100528","name":"선플라워 캡_아이보리"},{"code":"100529","name":"스타 숄더백_블랙"},{"code":"100530","name":"스타 숄더백_실버"},{"code":"100531","name":"스타 숄더백_그린"},{"code":"100532","name":"립보스턴 XL백_차콜"},{"code":"100534","name":"박스 블록백_차콜"},{"code":"100536","name":"익스플로어백팩_라임"},{"code":"100538","name":"티어드밴딩백팩_차콜_C"},{"code":"100539","name":"티어드밴딩백팩_핑크_C"},{"code":"124BG006BK","name":"블루밍 백팩_블랙"},{"code":"124BG006BL","name":"블루밍 백팩_딥블루"},{"code":"124BG006GY","name":"블루밍 백팩_그레이"},{"code":"124BG006IV","name":"블루밍 백팩_크림"},{"code":"124BG006LB","name":"블루밍 백팩_아이스블루"},{"code":"124BG007BK","name":"블루밍 미니 백팩_블랙"},{"code":"124BG007BL","name":"블루밍 미니 백팩_딥블루"},{"code":"124BG007GY","name":"블루밍 미니 백팩_그레이"},{"code":"124BG007LB","name":"블루밍 미니 백팩_아이스블루"},{"code":"124BG011BK","name":"블루밍 호보백_블랙"},{"code":"124BG011BL","name":"블루밍 호보백_딥블루"},{"code":"124BG011GY","name":"블루밍 호보백_그레이"},{"code":"124BG011IV","name":"블루밍 호보백_크림"},{"code":"124BG011LB","name":"블루밍 호보백_아이스블루"},{"code":"125AC643BK","name":"페블릿 카드 홀더_블랙"},{"code":"125AC643BR","name":"페블릿 카드 홀더_브라운"},{"code":"125AC643LB","name":"페블릿 카드 홀더_라이트블루"},{"code":"125AC643SV","name":"페블릿 카드 홀더_실버"},{"code":"125AC644BK","name":"타이니 킵 백_블랙"},{"code":"125AC644PP","name":"타이니 킵 백_퍼플"},{"code":"125AC644RD","name":"타이니 킵 백_레드"},{"code":"125AC644WH","name":"타이니 킵 백_화이트"},{"code":"125AC653BK","name":"썬 앤 레인 엄브렐라_블랙"},{"code":"125AC653IV","name":"썬 앤 레인 엄브렐라_아이보리"},{"code":"125AC656BK","name":"멜로우 키링_블랙"},{"code":"125AC656GN","name":"멜로우 키링_그린"},{"code":"125AC656YL","name":"멜로우 키링_옐로우"},{"code":"125AC657BK","name":"페블 그립톡 스탠드_블랙"},{"code":"125AC657IV","name":"페블 그립톡 스탠드_아이보리"},{"code":"125AC657LB","name":"페블 그립톡 스탠드_라이트블루"},{"code":"125AC658SV","name":"페블 그립톡 스탠드_실버"},{"code":"125AC659BK","name":"카라 참_매트 블랙"},{"code":"125AC659IV","name":"카라 참_아이보리"},{"code":"125AC659LB","name":"카라 참_라이트블루"},{"code":"125AC659SV","name":"카라 참_실버"},{"code":"125AC660WH","name":"맥세이프_화이트"},{"code":"125AC664GY","name":"캐리 스트랩_그레이"},{"code":"125AC664LB","name":"캐리 스트랩_라이트 블루"},{"code":"125AC664LE","name":"캐리 스트랩_레몬"},{"code":"125AC664NV","name":"캐리 스트랩_네이비"},{"code":"125AC665IV","name":"페블 그립톡 스탠드_아이보리 (맥세이프)"},{"code":"125AC665LB","name":"페블 그립톡 스탠드_라이트 블루 (맥세이프)"},{"code":"125AC665SV","name":"페블 그립톡 스탠드_실버 (맥세이프)"},{"code":"125BG638BK","name":"더블 라운드 숄더백_매트 블랙"},{"code":"125BG638BR","name":"더블 라운드 숄더백_브라운"},{"code":"125BG638IV","name":"더블 라운드 숄더백_아이보리"},{"code":"125BG638LB","name":"더블 라운드 숄더백_라이트블루"},{"code":"125BG639BK","name":"그레인 숄더백_매트 블랙"},{"code":"125BG639BR","name":"그레인 숄더백_브라운"},{"code":"125BG639IV","name":"그레인 숄더백_아이보리"},{"code":"125BG639LB","name":"그레인 숄더백_라이트블루"},{"code":"125BG640BK","name":"미니 그레인 토트백_매트 블랙"},{"code":"125BG640BR","name":"미니 그레인 토트백_브라운"},{"code":"125BG640IV","name":"미니 그레인 토트백_아이보리"},{"code":"125BG640LB","name":"미니 그레인 토트백_라이트블루"},{"code":"125BG641BK","name":"네스트 메쉬 숄더백_블랙"},{"code":"125BG641IV","name":"네스트 메쉬 숄더백_아이보리"},{"code":"125BG641SV","name":"네스트 메쉬 숄더백_실버"},{"code":"125BG642BK","name":"폰드 월렛백_매트 블랙"},{"code":"125BG642BR","name":"폰드 월렛백_브라운"},{"code":"125BG642IV","name":"폰드 월렛백_아이보리"},{"code":"125BG642LB","name":"폰드 월렛백_라이트블루"},{"code":"125BG643IV","name":"페블릿 카드 홀더_아이보리"},{"code":"125BG661BK","name":"라지 탱글 트위스트 백_블랙"},{"code":"125BG661BL","name":"라지 탱글 트위스트 백_블루"},{"code":"125BG661LB","name":"라지 탱글 트위스트 백_라이트 블루"},{"code":"125BG661RD","name":"라지 탱글 트위스트 백_레드"},{"code":"125BG661WH","name":"라지 탱글 트위스트 백_화이트"},{"code":"125BG662LB","name":"스몰 에코백_라이트블루"},{"code":"125BG663LB","name":"라지 에코백_라이트블루"},{"code":"126AC701LE","name":"나이스 워크 투데이 월렛_레몬"},{"code":"126AC701NV","name":"나이스 워크 투데이 월렛_네이비"},{"code":"126AC701PN","name":"나이스 워크 투데이 월렛_핑크"},{"code":"126AC701WH","name":"나이스 워크 투데이 월렛_화이트"},{"code":"126AC704","name":"레이크 스트랩"},{"code":"126BG687BK","name":"글로시 라지 탱글 트위스트백_블랙"},{"code":"126BG687BR","name":"글로시 라지 탱글 트위스트백_브라운"},{"code":"126BG687GN","name":"글로시 라지 탱글 트위스트백_틸 그린"},{"code":"126BG687IV","name":"글로시 라지 탱글 트위스트백_아이보리"},{"code":"126BG687PN","name":"글로시 라지 탱글 트위스트백_애쉬 핑크"},{"code":"126BG687YL","name":"글로시 라지 탱글 트위스트백_머스타드"},{"code":"126BG688BK","name":"글로시 미드 탱글 트위스트백_블랙"},{"code":"126BG688BR","name":"글로시 미드 탱글 트위스트백_브라운"},{"code":"126BG688GN","name":"글로시 미드 탱글 트위스트백_틸 그린"},{"code":"126BG688IV","name":"글로시 미드 탱글 트위스트백_아이보리"},{"code":"126BG688PN","name":"글로시 미드 탱글 트위스트백_애쉬 핑크"},{"code":"126BG688YL","name":"글로시 미드 탱글 트위스트백_머스타드"},{"code":"126BG689BK","name":"글로시 스몰 탱글 트위스트백_블랙"},{"code":"126BG689BR","name":"글로시 스몰 탱글 트위스트백_브라운"},{"code":"126BG689GN","name":"글로시 스몰 탱글 트위스트백_틸 그린"},{"code":"126BG689IV","name":"글로시 스몰 탱글 트위스트백_아이보리"},{"code":"126BG689PN","name":"글로시 스몰 탱글 트위스트백_애쉬 핑크"},{"code":"126BG689YL","name":"글로시 스몰 탱글 트위스트백_머스타드"},{"code":"126BG690BK","name":"립 백_블랙"},{"code":"126BG690BL","name":"립 백_블루"},{"code":"126BG690PP","name":"립 백_퍼플"},{"code":"126BG690WH","name":"립 백_화이트"},{"code":"126BG691GN","name":"도트 버블백_그린"},{"code":"126BG692BL","name":"도트 버블백_글로시 블루"},{"code":"126BG693IV","name":"도트 버블백_글로시 아이보리"},{"code":"126BG694BK","name":"라지 탱글 트위스트백_블랙"},{"code":"126BG694RD","name":"라지 탱글 트위스트백_레드"},{"code":"126BG696RD","name":"스몰 탱글 트위스트백_레드"},{"code":"126BG699BL","name":"나이스 워크 투데이 에코백_더스티 블루"},{"code":"126BG699LE","name":"나이스 워크 투데이 에코백_레몬"},{"code":"126BG699NV","name":"나이스 워크 투데이 에코백_네이비"},{"code":"126BG699PN","name":"나이스 워크 투데이 에코백_핑크"},{"code":"126BG699WH","name":"나이스 워크 투데이 에코백_화이트"},{"code":"126BG700CH","name":"나이스 워크 투데이 랩탑 파우치_차콜"},{"code":"126BG700LG","name":"나이스 워크 투데이 랩탑 파우치_라이트 그레이"},{"code":"126BG700MT","name":"나이스 워크 투데이 랩탑 파우치_민트"},{"code":"126BG703BK","name":"립보스턴 스몰백_블랙"},{"code":"126HW702CH","name":"나이스 워크 투데이 볼캡_차콜"},{"code":"126HW702GN","name":"나이스 워크 투데이 볼캡_그린"},{"code":"126HW702IV","name":"나이스 워크 투데이 볼캡_아이보리"},{"code":"126HW702NV","name":"나이스 워크 투데이 볼캡_네이비"},{"code":"126HW702PN","name":"나이스 워크 투데이 볼캡_핑크"},{"code":"200004","name":"미니 지갑"},{"code":"224BG001BK","name":"블루밍 크로스백_블랙"},{"code":"224BG001BL","name":"블루밍 크로스백_딥블루"},{"code":"224BG001GY","name":"블루밍 크로스백_그레이"},{"code":"224BG001IV","name":"블루밍 크로스백_크림"},{"code":"224BG001LB","name":"블루밍 크로스백_아이스블루"},{"code":"225AC652BK","name":"미스트 스퀘어 스크런치_블랙"},{"code":"225AC652IV","name":"미스트 스퀘어 스크런치_아이보리"},{"code":"225AC652LB","name":"미스트 스퀘어 스크런치_라이트블루"},{"code":"225BG651BG","name":"미스트 백_버건디"},{"code":"225BG651BK","name":"미스트 백_블랙"},{"code":"225BG651GN","name":"미스트 백_그린"},{"code":"225BG651IV","name":"미스트 백_아이보리"},{"code":"225BG666BK","name":"미드 탱글 트위스트백_블랙"},{"code":"225BG666BL","name":"미드 탱글 트위스트백_블루"},{"code":"225BG666LB","name":"미드 탱글 트위스트백_라이트 블루"},{"code":"225BG666RD","name":"미드 탱글 트위스트백_레드"},{"code":"225BG666WH","name":"미드 탱글 트위스트백_화이트"},{"code":"225DR645BK","name":"스웨이 드레스_블랙"},{"code":"225DR645LB","name":"스웨이 드레스_라이트블루"},{"code":"225DR645WH","name":"스웨이 드레스_화이트"},{"code":"225DR646BE","name":"베일 드레스_버터"},{"code":"225DR646BK","name":"베일 드레스_블랙"},{"code":"225DR646LB","name":"베일 드레스_라이트블루"},{"code":"225SK648BK","name":"팝업 랩스커트_블랙"},{"code":"225SK648LB","name":"팝업 랩스커트_라이트 블루"},{"code":"225SK648LE","name":"팝업 랩스커트_레몬"},{"code":"225SK648WH","name":"팝업 랩스커트_화이트"},{"code":"225SK650CH","name":"플로트 스커트_차콜"},{"code":"225SK650LB","name":"플로트 스커트_라이트 블루"},{"code":"225SK650WH","name":"플로트 스커트_화이트"},{"code":"225TP647GY","name":"에어라이트 투웨이 아노락_그레이"},{"code":"225TP647LE","name":"에어라이트 투웨이 아노락_레몬"},{"code":"225TP647PN","name":"에어라이트 투웨이 아노락_핑크"},{"code":"225TP647WH","name":"에어라이트 투웨이 아노락_화이트"},{"code":"225TP649CH","name":"플로트 개더드 탑_차콜"},{"code":"225TP649LB","name":"플로트 개더드 탑_라이트 블루"},{"code":"225TP649WH","name":"플로트 개더드 탑_화이트"},{"code":"2964100003","name":"미니 에코백 (랜덤)"},{"code":"2964100004","name":"라지 에코백 (랜덤)"},{"code":"323BG001BK","name":"립보스턴 라지백_블랙"},{"code":"323BG001CH","name":"립보스턴 라지백_챠콜"},{"code":"323BG002BK","name":"립보스턴 스몰백_블랙"},{"code":"323BG002CH","name":"립보스턴 스몰백_챠콜"},{"code":"323BG002SV","name":"립보스턴 스몰백_실버"},{"code":"324AC599BK","name":"Heart Cushion_Black"},{"code":"324AC599BL","name":"Heart Cushion_Blue"},{"code":"324AC599PP","name":"Heart Cushion_Purple"},{"code":"324AC599RD","name":"Heart Cushion_Red"},{"code":"324AC599SV","name":"Heart Cushion_Silver"},{"code":"324AC600BK","name":"커스텀 하트 키링_블랙"},{"code":"324AC600PP","name":"커스텀 하트 키링_퍼플"},{"code":"324AC600SV","name":"커스텀 하트 키링_실버"},{"code":"324AC604BK","name":"마일스톤 월렛_블랙"},{"code":"324AC604BL","name":"마일스톤 월렛_블루"},{"code":"324AC604BR","name":"마일스톤 월렛_브라운"},{"code":"324AC604SV","name":"마일스톤 월렛_실버"},{"code":"324AC605BK","name":"마일스톤 파우치_블랙"},{"code":"324AC605BL","name":"마일스톤 파우치_블루"},{"code":"324AC605BR","name":"마일스톤 파우치_브라운"},{"code":"324AC605SV","name":"마일스톤 파우치_실버"},{"code":"324AC608BL","name":"Paris Walk Ball Cap_Blue"},{"code":"324AC608CH","name":"Paris Walk Ball Cap_Charcoal"},{"code":"324AC608GP","name":"Paris Walk Ball Cap_Green"},{"code":"324AC608GR","name":"Paris Walk Ball Cap_Green White"},{"code":"324AC608GY","name":"Paris Walk Ball Cap_Gray"},{"code":"324AC611","name":"[GIFT] Paris Keychain"},{"code":"324AC612","name":"[GIFT] Paris Postcard Pack"},{"code":"324AC615BK","name":"글로시 스크런치_블랙"},{"code":"324AC615SV","name":"글로시 스크런치_실버"},{"code":"324AC621BR","name":"엠버 핸드워머_브라운"},{"code":"324AC621GY","name":"엠버 핸드워머_그레이"},{"code":"324AC621IV","name":"엠버 핸드워머_아이보리"},{"code":"324AC621NV","name":"엠버 핸드워머_네이비"},{"code":"324AP609BL","name":"Paris Walk T-shirt_Blue"},{"code":"324AP609GR","name":"Paris Walk T-shirt_Green"},{"code":"324AP609GY","name":"Paris Walk T-shirt_Gray"},{"code":"324AP609NV","name":"Paris Walk T-shirt_Navy"},{"code":"324AP610WH","name":"Paris Walk T-shirt_White"},{"code":"324BG601BK","name":"레이크 13 랩탑 클러치_트리플블랙_C"},{"code":"324BG601BL","name":"레이크 13 랩탑 클러치_블루_C"},{"code":"324BG601BR","name":"레이크 13 랩탑 클러치_브라운_C"},{"code":"324BG601CR","name":"레이크 13 랩탑 클러치_크림_C"},{"code":"324BG601SV","name":"레이크 13 랩탑 클러치_실버_C"},{"code":"324BG602BK","name":"레이크 16 랩탑 클러치_트리플블랙_C"},{"code":"324BG602BL","name":"레이크 16 랩탑 클러치_블루_C"},{"code":"324BG602BR","name":"레이크 16 랩탑 클러치_브라운_C"},{"code":"324BG602CR","name":"레이크 16 랩탑 클러치_크림_C"},{"code":"324BG602SV","name":"레이크 16 랩탑 클러치_실버_C"},{"code":"324BG603BK","name":"마일스톤 에코백_블랙"},{"code":"324BG603BR","name":"마일스톤 에코백_브라운"},{"code":"324BG603CR","name":"마일스톤 에코백_크림"},{"code":"324BG603SV","name":"마일스톤 에코백_실버"},{"code":"324BG606BL","name":"Paris Walk Lettering Eco Bag_Blue"},{"code":"324BG606GR","name":"Paris Walk Lettering Eco Bag_Green"},{"code":"324BG606NV","name":"Paris Walk Lettering Eco Bag_Navy"},{"code":"324BG607GR","name":"Artwork in Paris Eco Bag_Green"},{"code":"324BG607GY","name":"Artwork in Paris Eco Bag_Gray"},{"code":"324BG607IV","name":"Artwork in Paris Eco Bag_Ivory"},{"code":"324BG607NV","name":"Artwork in Paris Eco Bag_Navy"},{"code":"324HW613BK","name":"노마드 바라클라바_블랙"},{"code":"324HW613BL","name":"노마드 바라클라바_블루"},{"code":"324HW613BR","name":"노마드 바라클라바_브라운"},{"code":"324HW613GY","name":"노마드 바라클라바_그레이"},{"code":"324HW613LE","name":"노마드 바라클라바_레몬"},{"code":"324HW614BK","name":"모스 버킷 비니_블랙"},{"code":"324HW614BR","name":"모스 버킷 비니_브라운"},{"code":"324HW614IV","name":"모스 버킷 비니_아이보리"},{"code":"324HW614LB","name":"모스 버킷 비니_라이트블루"},{"code":"324ST612BL","name":"호라이즌 스웨터_라이트블루"},{"code":"324ST612BR","name":"호라이즌 스웨터_브라운"},{"code":"324ST612PK","name":"호라이즌 스웨터_핑크"},{"code":"324ST622BK","name":"플로우 투웨이 크롭 니트_블랙"},{"code":"324ST622BR","name":"플로우 투웨이 크롭 니트_브라운"},{"code":"324ST622GY","name":"플로우 투웨이 크롭 니트_그레이"},{"code":"324ST622LE","name":"플로우 투웨이 크롭 니트_레몬"},{"code":"325BG667BK","name":"글로시 라지 탱글 트위스트백_블랙"},{"code":"325BG667BR","name":"글로시 라지 탱글 트위스트백_브라운"},{"code":"325BG668BK","name":"글로시 미드 탱글 트위스트백_블랙"},{"code":"325BG668BR","name":"글로시 미드 탱글 트위스트백_브라운"},{"code":"325BG669BK","name":"패널 크로스백_블랙"},{"code":"325BG669BL","name":"패널 크로스백_블루"},{"code":"325BG669PP","name":"패널 크로스백_퍼플"},{"code":"325BG670BK","name":"글로시 패널 크로스백_블랙"},{"code":"325BG670BR","name":"글로시 패널 크로스백_브라운"},{"code":"325BG671BK","name":"포케터 백팩_블랙"},{"code":"325BG671BL","name":"포케터 백팩_블루"},{"code":"325BG671PP","name":"포케터 백팩_퍼플"},{"code":"325BG672BK","name":"글로시 포케터 백팩_블랙"},{"code":"325BG672BR","name":"글로시 포케터 백팩_브라운"},{"code":"325BG673BG","name":"웨이 원숄더백_버건디"},{"code":"325BG673BR","name":"웨이 원숄더백_브라운"},{"code":"325BG673NV","name":"웨이 원숄더백_네이비"},{"code":"325BG673PP","name":"웨이 원숄더백_퍼플"},{"code":"325BG674BK","name":"웨이 원숄더백_믹스블랙"},{"code":"325BG675BG","name":"웨이 호보백_버건디"},{"code":"325BG675BK","name":"웨이 호보백_블랙"},{"code":"325BG675BR","name":"웨이 호보백_브라운"},{"code":"325BG675NV","name":"웨이 호보백_네이비"},{"code":"325BG675PP","name":"웨이 호보백_퍼플"},{"code":"325BG676PP","name":"그리드 더플 라지백_퍼플"},{"code":"325BG677BK","name":"글로시 그리드 더플 라지백_블랙"},{"code":"325BG677BR","name":"글로시 그리드 더플 라지백_브라운"},{"code":"325BG678PP","name":"그리드 더플 스몰백_퍼플"},{"code":"325BG679BK","name":"글로시 그리드 더플 스몰백_블랙"},{"code":"325BG679BR","name":"글로시 그리드 더플 스몰백_브라운"},{"code":"325BG680BR","name":"도트 버블백_브라운"},{"code":"325BG680CH","name":"도트 버블백_차콜"},{"code":"325BG681BK","name":"도트 버블백_글로시 블랙"},{"code":"325BG681PL","name":"도트 버블백_글로시 퍼플"},{"code":"325BG681SV","name":"도트 버블백_글로시 실버"},{"code":"424BG623BK","name":"드로스트링 백_잉크 블랙"},{"code":"424BG623BL","name":"드로스트링 백_인디고 블루"},{"code":"424BG624BK","name":"리서치 스몰백_블랙"},{"code":"424BG624KH","name":"리서치 스몰백_카키"},{"code":"424BG625BK","name":"리서치 라지백_블랙"},{"code":"424BG625KH","name":"리서치 라지백_카키"},{"code":"424BG625SV","name":"리서치 라지백_실버"},{"code":"424BG626DB","name":"인터뷰 스몰백_초콜렛"},{"code":"424BG626GY","name":"인터뷰 스몰백_그레이"},{"code":"424BG626PP","name":"인터뷰 스몰백_퍼플"},{"code":"424BG627DB","name":"인터뷰 미디움백_초콜렛"},{"code":"424BG627GY","name":"인터뷰 미디움백_그레이"},{"code":"424BG628BE","name":"인터뷰 미디움백_베이지"},{"code":"424BG628BL","name":"인터뷰 미디움백_블루"},{"code":"424BG628BR","name":"인터뷰 미디움백_브라운"},{"code":"424BG628YL","name":"인터뷰 미디움백_옐로우"},{"code":"424BG629DB","name":"인터뷰 라지백_초콜렛"},{"code":"424BG629GY","name":"인터뷰 라지백_그레이"},{"code":"424BG630BL","name":"인터뷰 라지백_블루"},{"code":"424BG630BR","name":"인터뷰 라지백_브라운"},{"code":"424BG630YL","name":"인터뷰 라지백_옐로우"},{"code":"424BG631BK","name":"인터뷰 미디움백_스웨이드 블랙"},{"code":"424BG631BR","name":"인터뷰 미디움백_스웨이드 브라운"},{"code":"424BG631CM","name":"인터뷰 미디움백_스웨이드 카멜"},{"code":"424BG632BK","name":"스케줄 미디움 백팩_블랙"},{"code":"424BG632BR","name":"스케줄 미디움 백팩_브라운"},{"code":"424BG632GY","name":"스케줄 미디움 백팩_그레이"},{"code":"424BG633BK","name":"스케줄 라지 백팩_블랙"},{"code":"424BG633BR","name":"스케줄 라지 백팩_브라운"},{"code":"424BG633GY","name":"스케줄 라지 백팩_그레이"},{"code":"424BG634BE","name":"인사이트 크로스백_버터베이지"},{"code":"424BG634BK","name":"인사이트 크로스백_블랙"},{"code":"424BG634BR","name":"인사이트 크로스백_브라운"},{"code":"424BG634GY","name":"인사이트 크로스백_그레이"},{"code":"424BG636BE","name":"아젠다 스몰백_버터 베이지"},{"code":"424BG636BK","name":"아젠다 스몰백_블랙"},{"code":"424BG636BR","name":"아젠다 스몰백_브라운"},{"code":"424BG636GY","name":"아젠다 스몰백_그레이"},{"code":"424BG637BE","name":"아젠다 미듐백_버터 베이지"},{"code":"424BG637BK","name":"아젠다 미듐백_블랙"},{"code":"424BG637BR","name":"아젠다 미듐백_브라운"},{"code":"425CD684BK","name":"더블웨이 가디건_블랙"},{"code":"425CD684BL","name":"더블웨이 가디건_피콕 블루"},{"code":"425CD684BR","name":"더블웨이 가디건_브라운"},{"code":"425CD684GY","name":"더블웨이 가디건_그레이"},{"code":"425CD684PP","name":"더블웨이 가디건_퍼플"},{"code":"425HW685BK","name":"브러쉬드 블렌드 비니_블랙"},{"code":"425HW685GN","name":"브러쉬드 블렌드 비니_틸 그린"},{"code":"425HW685GY","name":"브러쉬드 블렌드 비니_그레이"},{"code":"425HW685LB","name":"브러쉬드 블렌드 비니_라이트 블루"},{"code":"425HW685LE","name":"브러쉬드 블렌드 비니_레몬"},{"code":"425HW685PP","name":"브러쉬드 블렌드 비니_라이트 퍼플"},{"code":"425SK683BK","name":"모듈러 랩스커트_블랙"},{"code":"425SK683DP","name":"모듈러 랩스커트_다크 퍼플"},{"code":"425SK683GY","name":"모듈러 랩스커트_그레이"},{"code":"425SK683LB","name":"모듈러 랩스커트_라이트 블루"},{"code":"425SK683NV","name":"모듈러 랩스커트_네이비"},{"code":"425ST682DP","name":"브러쉬드 블렌드 풀오버_딥 퍼플"},{"code":"425ST682GN","name":"브러쉬드 블렌드 풀오버_틸 그린"},{"code":"425ST682GY","name":"브러쉬드 블렌드 풀오버_그레이"},{"code":"425ST682LE","name":"브러쉬드 블렌드 풀오버_레몬"},{"code":"425ST682PP","name":"브러쉬드 블렌드 풀오버_라이트 퍼플"},{"code":"ACOC","name":"기타거래용"},{"code":"XXX","name":"기타샘플"}];
 
 // ── State ─────────────────────────────────────────────────────────────────
-// Firebase onValue로 실시간 동기화됨 — 초기값은 빈 배열
 let orders = [];
 let customProducts = [];
 let currentFilter = 'all';
@@ -461,14 +444,6 @@ let acSelectedIdx = -1;
 
 function allProducts() {
   return [...PRODUCTS, ...customProducts];
-}
-
-function save() {
-  if (window._fbSave) window._fbSave(orders);
-}
-
-function saveCustomProducts() {
-  if (window._fbSaveCustomProducts) window._fbSaveCustomProducts(customProducts);
 }
 
 // ── Date utils ────────────────────────────────────────────────────────────
@@ -635,7 +610,11 @@ function updateStats() {
   document.getElementById('stat-overdue').textContent = orders.filter(o=>getStatus(o)==='overdue').length;
 }
 
-function save() { localStorage.setItem('acoc_reorders_v2', JSON.stringify(orders)); }
+function save() {
+  const obj = {};
+  orders.forEach(o => { obj[o.id] = o; });
+  _db.ref('orders').set(obj);
+}
 
 // ── Filters ───────────────────────────────────────────────────────────────
 function clearSearch() {
@@ -1142,57 +1121,6 @@ function modalProductKeydown(e){
   else if(e.key==='Escape'){list.classList.remove('open');}
 }
 
-// ── Backup / Restore ──────────────────────────────────────────────────────
-function backupJSON() {
-  const data = {
-    orders,
-    customProducts,
-    exportedAt: new Date().toISOString(),
-    version: 2
-  };
-  const json = JSON.stringify(data, null, 2);
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-  a.download = `acoc_reorder_backup_${today()}.json`;
-  a.click();
-  showToast('💾 백업 파일이 다운로드됐습니다');
-}
-
-function restoreJSON(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target.result);
-      // v2 백업 형식 또는 단순 배열 형식 모두 지원
-      let restoredOrders = [];
-      let restoredProducts = [];
-      if (Array.isArray(data)) {
-        // 단순 배열 → orders로 처리
-        restoredOrders = data;
-      } else if (data.orders) {
-        restoredOrders = Array.isArray(data.orders) ? data.orders : Object.values(data.orders);
-        restoredProducts = data.customProducts
-          ? (Array.isArray(data.customProducts) ? data.customProducts : Object.values(data.customProducts))
-          : [];
-      }
-      if (!restoredOrders.length) { alert('복원할 데이터가 없습니다'); return; }
-      if (!confirm(`${restoredOrders.length}건의 리오더 데이터를 복원하시겠습니까?\n기존 데이터는 덮어씌워집니다.`)) return;
-
-      orders = restoredOrders;
-      if (restoredProducts.length) customProducts = restoredProducts;
-      save();
-      if (restoredProducts.length) saveCustomProducts();
-      showToast(`✓ ${restoredOrders.length}건 복원됐습니다`);
-    } catch(err) {
-      alert('파일을 읽을 수 없습니다: ' + err.message);
-    }
-  };
-  reader.readAsText(file);
-  event.target.value = '';
-}
-
 // ── Export CSV ────────────────────────────────────────────────────────────
 function exportCSV() {
   const rows=[['발주번호','요청일','거래처','품목코드','품목명','수량','입고예정일','예약배송일','상태','메모']];
@@ -1227,7 +1155,8 @@ function addCustomProduct() {
     alert('이미 등록된 상품코드입니다'); return;
   }
   customProducts.push({ code, name, custom: true });
-  saveCustomProducts();
+  const obj = {}; customProducts.forEach(p => { obj[p.code] = p; });
+  _db.ref('customProducts').set(obj);
   document.getElementById('new-product-code').value = '';
   document.getElementById('new-product-name').value = '';
   document.getElementById('new-product-code').focus();
@@ -1238,7 +1167,8 @@ function addCustomProduct() {
 function deleteCustomProduct(code) {
   if (!confirm(`${code} 상품을 삭제하시겠습니까?`)) return;
   customProducts = customProducts.filter(p => p.code !== code);
-  saveCustomProducts();
+  const obj = {}; customProducts.forEach(p => { obj[p.code] = p; });
+  _db.ref('customProducts').set(obj);
   renderCustomProductList();
   showToast('삭제됐습니다');
 }
@@ -1279,9 +1209,25 @@ document.addEventListener('click',e=>{
 document.getElementById('modal').addEventListener('click',e=>{
   if(e.target===document.getElementById('modal')) closeModal();
 });
-</script>
 
-<!-- Firebase 리스너 — 모든 스크립트 로드 후 마지막에 실행 -->
+
+// ── Backup ────────────────────────────────────────────────────────────────
+function backupJSON() {
+  const data = {
+    orders,
+    customProducts,
+    exportedAt: new Date().toISOString(),
+    version: 2
+  };
+  const json = JSON.stringify(data, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = 'acoc_reorder_backup_' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+}
+
+// ── Firebase 리스너 — 모든 스크립트 로드 후 마지막에 실행 ──────────────────
+</script>
 <script>
 _db.ref('orders').on('value', (snapshot) => {
   orders = snapshot.val() ? Object.values(snapshot.val()) : [];
