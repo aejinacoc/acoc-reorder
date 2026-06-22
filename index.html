@@ -1279,26 +1279,17 @@ document.addEventListener('click',e=>{
 document.getElementById('modal').addEventListener('click',e=>{
   if(e.target===document.getElementById('modal')) closeModal();
 });
+</script>
 
-// Firebase 데이터 로드
-function initFirebase() {
-  _db.ref('orders').on('value', (snapshot) => {
-    const data = snapshot.val();
-    orders = data ? Object.values(data) : [];
-    render();
-  });
-  _db.ref('customProducts').on('value', (snapshot) => {
-    const data = snapshot.val();
-    customProducts = data ? Object.values(data) : [];
-  });
-}
-
-// Firebase SDK 로드 완료 후 실행
-if (typeof _db !== 'undefined') {
-  initFirebase();
-} else {
-  window.addEventListener('load', initFirebase);
-}
+<!-- Firebase 리스너 — 모든 스크립트 로드 후 마지막에 실행 -->
+<script>
+_db.ref('orders').on('value', (snapshot) => {
+  orders = snapshot.val() ? Object.values(snapshot.val()) : [];
+  render();
+});
+_db.ref('customProducts').on('value', (snapshot) => {
+  customProducts = snapshot.val() ? Object.values(snapshot.val()) : [];
+});
 </script>
 </body>
 </html>
