@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACOC 리오더 관리</title>
+<!-- SheetJS for xlsx parsing -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Firebase Realtime Database -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBdMW2rCZFghXoieatFXVvwEvb68Zj5rsk",
+    authDomain: "acoc-reorder-2faba.firebaseapp.com",
+    databaseURL: "https://acoc-reorder-2faba-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "acoc-reorder-2faba",
+    storageBucket: "acoc-reorder-2faba.firebasestorage.app",
+    messagingSenderId: "368044581752",
+    appId: "1:368044581752:web:1e6edf1f12b7dee0e5de8d"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // Firebase save 함수 전역 등록
+  window._fbSave = function(ordersData, productsData) {
+    const promises = [];
+    if (ordersData !== undefined) promises.push(set(ref(db, 'acoc/orders'), ordersData.length ? ordersData : null));
+    if (productsData !== undefined) promises.push(set(ref(db, 'acoc/customProducts'), productsData.length ? productsData : null));
+    return Promise.all(promises).catch(e => console.error('Firebase save error:', e));
+  };
+
+  // Firebase에서 실시간 데이터 수신
+  onValue(ref(db, 'acoc/orders'), (snapshot) => {
+    const data = snapshot.val();
+    if (data !== null) {
+      // Firebase는 배열을 object{0:.., 1:..} 형태로 저장 → 배열로 변환
+      let arr;
+      if (Array.isArray(data)) {
+        arr = data.filter(x => x != null); // null 항목 제거
+      } else {
+        arr = Object.values(data).filter(x => x != null);
+      }
+      window.orders = arr;
+      orders = arr;
+    } else {
+      // Firebase 비어있으면 localStorage 데이터 마이그레이션
+      const local = JSON.parse(localStorage.getItem('acoc_reorders_v2') || '[]');
+      window.orders = local;
+      orders = local;
+      if (local.length > 0) {
+        set(ref(db, 'acoc/orders'), local);
+        console.log('localStorage → Firebase 마이그레이션:', local.length, '건');
+      }
+    }
+    // 화면 갱신
+    if (typeof render === 'function') render();
+    const ind = document.getElementById('save-indicator');
+    if (ind) {
+      ind.textContent = '🔥 연결됨 (' + (window.orders||[]).length + '건)';
+      ind.style.color = 'var(--green)';
+    }
+  });
+
+  onValue(ref(db, 'acoc/customProducts'), (snapshot) => {
+    const data = snapshot.val();
+    if (data !== null) {
+      const arr = Array.isArray(data) ? data.filter(x=>x!=null) : Object.values(data).filter(x=>x!=null);
+      window.customProducts = arr;
+      customProducts = arr;
+    } else {
+      const local = JSON.parse(localStorage.getItem('acoc_custom_products') || '[]');
+      window.customProducts = local;
+      customProducts = local;
+      if (local.length > 0) set(ref(db, 'acoc/customProducts'), local);
+    }
+  });
+</script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #F7F6F3; --surface: #FFFFFF;
+  --border: #E4E2DC; --border-strong: #C8C5BB;
+  --text: #1A1916; --text-sub: #7A7871;
+  --accent: #2D2D2A; --accent-dark: #1a1a17; --accent-light: #F0EFE9;
+  --green: #2A6041; --green-bg: #EDF4EF;
+  --yellow: #7A5C1E; --yellow-bg: #FDF6E3;
+  --red: #7A2424; --red-bg: #FDF0EF;
+  --blue: #1E3A7A; --blue-bg: #EEF2FB;
+  --radius: 6px; --shadow: 0 1px 4px rgba(0,0,0,0.09);
+}
+body { font-family: 'Pretendard','Apple SD Gothic Neo',-apple-system,sans-serif; background:var(--bg); color:var(--text); font-size:14px; min-height:100vh; }
+
+/* Header */
+header { background:var(--surface); border-bottom:1px solid var(--border); padding:0 32px; height:56px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+.logo { font-size:13px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--text); }
+.logo span { color:var(--text-sub); font-weight:400; margin-left:8px; }
+.header-right { display:flex; gap:8px; align-items:center; }
+
+/* Buttons */
+.btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:var(--radius); font-size:13px; font-weight:500; cursor:pointer; border:1px solid transparent; transition:all .15s; white-space:nowrap; }
+.btn-primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+.btn-primary:hover { background:var(--accent-dark); border-color:var(--accent-dark); }
+.btn-outline { background:var(--surface); color:var(--text); border-color:var(--border-strong); }
+.btn-outline:hover { background:var(--accent-light); border-color:var(--accent); }
+.btn-ghost { background:transparent; color:var(--text-sub); border-color:transparent; }
+.btn-ghost:hover { background:var(--accent-light); color:var(--text); }
+.btn-danger { background:transparent; color:var(--red); border-color:transparent; }
+.btn-danger:hover { background:var(--red-bg); }
+.btn-sm { padding:4px 10px; font-size:12px; }
+
+/* Main */
+main { padding:28px 32px; max-width:1400px; margin:0 auto; }
+
+/* Stats */
+.stats-bar { display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap; }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 20px; display:flex; flex-direction:column; gap:4px; min-width:120px; transition:all .15s; }
+.stat-card:hover { border-color:var(--border-strong); box-shadow:0 2px 8px rgba(0,0,0,.08); }
+.stat-card.active-filter { border-width:2px; }
+.stat-card.total.active-filter { border-color:var(--accent); background:var(--accent-light); }
+.stat-card.pending.active-filter { border-color:var(--yellow); background:var(--yellow-bg); }
+.stat-card.arrived.active-filter { border-color:var(--green); background:var(--green-bg); }
+.stat-card.overdue.active-filter { border-color:var(--red); background:var(--red-bg); }.stat-label { font-size:11px; color:var(--text-sub); text-transform:uppercase; letter-spacing:.06em; }
+.stat-value { font-size:22px; font-weight:600; }
+.stat-card.total .stat-value { color:var(--text); }
+.stat-card.pending .stat-value { color:var(--yellow); }
+.stat-card.arrived .stat-value { color:var(--green); }
+.stat-card.overdue .stat-value { color:var(--red); }
+
+/* Import drop zone */
+.import-zone {
+  border:2px dashed var(--border-strong); border-radius:var(--radius);
+  padding:24px 28px; margin-bottom:20px; background:var(--surface);
+  transition:all .2s; cursor:pointer; text-align:center;
+}
+.import-zone.hidden { display:none; }
+.import-zone.drag-over { border-color:var(--accent); background:var(--accent-light); }
+.import-zone-inner { display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none; }
+.import-icon { font-size:28px; }
+.import-zone strong { font-size:14px; }
+.import-zone span { font-size:12px; color:var(--text-sub); }
+.import-zone-hint { margin-top:4px; font-size:11px; color:var(--text-sub); background:var(--accent-light); padding:4px 10px; border-radius:12px; display:inline-block; }
+#ecount-file-input { display:none; }
+
+/* Toolbar */
+.toolbar { display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+.toolbar-left { display:flex; gap:8px; align-items:center; flex:1; flex-wrap:wrap; }
+.toolbar-right { display:flex; gap:8px; align-items:center; }
+.filter-btn { padding:6px 12px; border-radius:20px; font-size:12px; border:1px solid var(--border); background:var(--surface); cursor:pointer; color:var(--text-sub); transition:all .15s; }
+.filter-btn:hover, .filter-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+/* Table */
+.table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); }
+table { width:100%; border-collapse:collapse; }
+thead { background:var(--accent-light); }
+th { padding:10px 14px; text-align:left; font-size:11px; font-weight:600; color:var(--text-sub); text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid var(--border); white-space:nowrap; }
+td { padding:10px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+td.items-cell { vertical-align:middle; padding-top:10px; padding-bottom:10px; }
+tr { height:auto; }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:var(--accent-light); }
+
+/* Order ID badge */
+.order-id {
+  display:inline-flex; align-items:center;
+  font-size:11px; font-weight:700; font-family:monospace;
+  background:var(--accent); color:#fff;
+  padding:3px 7px; border-radius:4px; letter-spacing:.04em;
+  white-space:nowrap;
+}
+.filter-btn:hover, .filter-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+.inline-date:focus { outline:none; border-color:var(--accent); background:#fff; }
+.inline-select:focus { outline:none; border-color:var(--accent); background:#fff; }
+.inline-memo:focus { outline:none; border-color:var(--accent); background:#fff; }
+.product-input:focus { outline:none; border-color:var(--accent); }
+.modal-input:focus { outline:none; border-color:var(--accent); }
+.autocomplete-item:hover, .autocomplete-item.selected { background:var(--accent-light); }
+.ac-highlight { color:var(--accent); font-weight:600; }
+.item-qty { font-size:13px; font-weight:600; color:var(--accent); text-align:right; }
+
+/* Items preview */
+.items-preview { display:flex; flex-direction:column; gap:6px; justify-content:center; }
+.item-row { display:grid; grid-template-columns:110px 1fr 48px; gap:8px; align-items:center; }
+.item-code { font-family:monospace; font-size:13px; font-weight:600; color:var(--text); }
+.item-name { font-size:13px; color:var(--text-sub); white-space:normal; word-break:keep-all; }
+.item-qty { font-size:13px; font-weight:600; color:var(--accent); text-align:right; }
+.items-collapsed { cursor:pointer; }
+.items-expand-btn { font-size:11px; color:var(--blue); cursor:pointer; margin-top:2px; display:inline-block; }
+.items-expand-btn:hover { text-decoration:underline; }
+
+/* Inline editable cells */
+.inline-date {
+  border:1px solid transparent; border-radius:4px;
+  padding:4px 6px; font-size:12px; font-family:inherit;
+  background:transparent; color:var(--text); width:108px;
+  cursor:pointer; transition:border-color .15s, background .15s;
+}
+.inline-date:hover { border-color:var(--border-strong); background:var(--surface); }
+.inline-date:focus { outline:none; border-color:var(--accent); background:#fff; }
+.inline-select {
+  border:1px solid transparent; border-radius:4px;
+  padding:4px 6px; font-size:12px; font-family:inherit;
+  background:transparent; color:var(--text); width:88px;
+  cursor:pointer; transition:border-color .15s, background .15s;
+  appearance:none; -webkit-appearance:none;
+}
+.inline-select:hover { border-color:var(--border-strong); background:var(--surface); }
+.inline-select:focus { outline:none; border-color:var(--accent); background:#fff; }
+.inline-memo {
+  border:1px solid transparent; border-radius:4px;
+  padding:4px 6px; font-size:12px; font-family:inherit;
+  background:transparent; color:var(--text);
+  width:100%; max-width:100%;
+  cursor:pointer; transition:border-color .15s, background .15s;
+  resize:none; overflow:hidden; box-sizing:border-box;
+  display:block; line-height:1.5; min-height:28px;
+}
+.inline-memo:hover { border-color:var(--border-strong); background:var(--surface); }
+.inline-memo:focus { outline:none; border-color:var(--accent); background:#fff; }
+
+/* Badge */
+.badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:500; white-space:nowrap; }
+.badge-pending { background:var(--yellow-bg); color:var(--yellow); }
+.badge-arrived { background:var(--green-bg); color:var(--green); }
+.badge-overdue { background:var(--red-bg); color:var(--red); }
+
+/* D-Day */
+.dday { font-size:11px; padding:2px 6px; border-radius:4px; font-weight:600; letter-spacing:.03em; }
+.dday-soon { background:var(--yellow-bg); color:var(--yellow); }
+.dday-ok { background:var(--green-bg); color:var(--green); }
+.dday-over { background:var(--red-bg); color:var(--red); }
+.dday-none { background:var(--accent-light); color:var(--text-sub); }
+
+td.num { text-align:right; font-variant-numeric:tabular-nums; }
+td.center { text-align:center; }
+.note-text { font-size:12px; color:var(--text-sub); max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* Empty */
+.empty-state { padding:60px 20px; text-align:center; color:var(--text-sub); }
+.empty-state .empty-icon { font-size:36px; margin-bottom:12px; }
+.empty-state p { font-size:14px; margin-bottom:6px; }
+.empty-state span { font-size:12px; }
+
+/* Modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:500; display:none; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--surface); border-radius:10px; padding:28px 32px; width:540px; max-width:95vw; box-shadow:0 8px 40px rgba(0,0,0,.18); max-height:90vh; overflow-y:auto; }
+.modal h3 { font-size:16px; margin-bottom:20px; }
+.modal-field { margin-bottom:14px; }
+.modal-field label { display:block; font-size:12px; color:var(--text-sub); margin-bottom:5px; font-weight:500; }
+.modal-input { width:100%; padding:8px 12px; border:1px solid var(--border-strong); border-radius:var(--radius); font-size:14px; font-family:inherit; background:#fff; color:var(--text); }
+.modal-input:focus { outline:none; border-color:var(--accent); }
+.modal-row { display:flex; gap:12px; }
+.modal-row .modal-field { flex:1; }
+.modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:24px; }
+
+/* Modal product list */
+.modal-products { max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:10px; }
+.modal-product-row { display:flex; gap:10px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--border); }
+.modal-product-row:last-child { border-bottom:none; }
+.modal-product-code { font-size:11px; color:var(--text-sub); width:110px; font-family:monospace; }
+.modal-product-name { flex:1; font-size:13px; }
+.modal-product-qty { width:70px; }
+.modal-product-qty input { width:100%; padding:4px 8px; border:1px solid var(--border-strong); border-radius:4px; font-size:13px; text-align:right; }
+.add-product-row { display:flex; gap:8px; align-items:center; }
+.add-product-row .product-input-wrap { flex:1; }
+
+/* Autocomplete */
+.product-input-wrap { position:relative; }
+.product-input { width:100%; border:1px solid var(--border-strong); border-radius:4px; padding:5px 8px; font-size:13px; font-family:inherit; background:#fff; }
+.product-input:focus { outline:none; border-color:var(--accent); }
+.autocomplete-list { position:absolute; top:calc(100% + 2px); left:0; right:0; background:#fff; border:1px solid var(--border-strong); border-radius:var(--radius); box-shadow:0 4px 16px rgba(0,0,0,.12); z-index:200; max-height:240px; overflow-y:auto; display:none; }
+.autocomplete-list.open { display:block; }
+.autocomplete-item { padding:8px 12px; cursor:pointer; display:flex; gap:10px; align-items:baseline; border-bottom:1px solid var(--border); transition:background .1s; }
+.autocomplete-item:last-child { border-bottom:none; }
+.autocomplete-item:hover, .autocomplete-item.selected { background:var(--accent-light); }
+.ac-code { font-size:11px; color:var(--text-sub); font-family:monospace; min-width:100px; }
+.ac-name { font-size:13px; color:var(--text); }
+.ac-highlight { color:var(--accent); font-weight:600; }
+
+/* Import progress */
+.import-progress { margin-top:12px; display:none; }
+.import-progress.show { display:block; }
+.progress-list { list-style:none; display:flex; flex-direction:column; gap:4px; }
+.progress-item { display:flex; align-items:center; gap:8px; font-size:12px; padding:6px 10px; background:var(--accent-light); border-radius:4px; }
+.progress-item.ok { background:var(--green-bg); color:var(--green); }
+.progress-item.err { background:var(--red-bg); color:var(--red); }
+
+/* Toast */
+.toast { position:fixed; bottom:28px; right:28px; background:var(--accent); color:#fff; padding:12px 18px; border-radius:var(--radius); font-size:13px; box-shadow:0 4px 16px rgba(0,0,0,.2); transform:translateY(80px); opacity:0; transition:all .25s cubic-bezier(.34,1.56,.64,1); z-index:900; pointer-events:none; }
+.toast.show { transform:translateY(0); opacity:1; }
+
+@media(max-width:768px){
+  main{padding:16px;} header{padding:0 16px;}
+  th,td{padding:8px 10px;font-size:12px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ACOC <span>리오더 관리</span></div>
+  <div class="header-right">
+    <button class="btn btn-ghost btn-sm" onclick="openProductModal()">⚙ 상품 관리</button>
+    <button class="btn btn-outline btn-sm" onclick="toggleImport()">📥 이카운트 발주서 업로드</button>
+    <button class="btn btn-primary btn-sm" onclick="openAddModal()">+ 직접 추가</button>
+  </div>
+</header>
+
+<main>
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-card total" onclick="setFilterById('all')" style="cursor:pointer">
+      <span class="stat-label">전체</span><span class="stat-value" id="stat-total">0</span>
+    </div>
+    <div class="stat-card pending" onclick="setFilterById('pending')" style="cursor:pointer">
+      <span class="stat-label">입고 대기</span><span class="stat-value" id="stat-pending">0</span>
+    </div>
+    <div class="stat-card arrived" onclick="setFilterById('arrived')" style="cursor:pointer">
+      <span class="stat-label">입고 완료</span><span class="stat-value" id="stat-arrived">0</span>
+    </div>
+    <div class="stat-card overdue" onclick="setFilterById('overdue')" style="cursor:pointer">
+      <span class="stat-label">지연</span><span class="stat-value" id="stat-overdue">0</span>
+    </div>
+  </div>
+
+  <!-- Import zone -->
+  <div class="import-zone hidden" id="import-zone"
+    onclick="document.getElementById('ecount-file-input').click()"
+    ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFiles(event)">
+    <div class="import-zone-inner">
+      <div class="import-icon">📋</div>
+      <strong>이카운트 발주서 xlsx 파일을 여기에 드래그하거나 클릭해서 업로드</strong>
+      <span>여러 파일 동시 선택 가능 — 파일별로 각각 묶음으로 관리됩니다</span>
+      <span class="import-zone-hint">이카운트 → 발주서 조회 → 발주서 클릭 → Excel 저장</span>
+    </div>
+    <div class="import-progress" id="import-progress">
+      <ul class="progress-list" id="progress-list"></ul>
+    </div>
+    <input type="file" id="ecount-file-input" accept=".xlsx,.xls,.csv" multiple
+      onchange="handleFiles(event.target.files)" onclick="event.stopPropagation()">
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button class="filter-btn active" onclick="setFilter('all',this)">전체</button>
+      <button class="filter-btn" onclick="setFilter('pending',this)">입고 대기</button>
+      <button class="filter-btn" onclick="setFilter('arrived',this)">입고 완료</button>
+      <button class="filter-btn" onclick="setFilter('overdue',this)">지연</button>
+      <div style="position:relative;margin-left:4px;">
+        <input type="text" id="search-input"
+          placeholder="상품코드 · 상품명 검색..."
+          oninput="render()"
+          style="padding:6px 30px 6px 10px;border:1px solid var(--border-strong);border-radius:20px;font-size:12px;font-family:inherit;width:200px;background:var(--surface);color:var(--text);">
+        <span id="search-clear" onclick="clearSearch()"
+          style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-sub);font-size:14px;">✕</span>
+      </div>
+    </div>
+    <div class="toolbar-right">
+      <span id="save-indicator" style="font-size:12px;transition:color .3s;min-width:70px;text-align:right"></span>
+      <button class="btn btn-outline btn-sm" id="delete-selected-btn"
+        onclick="deleteSelected()"
+        style="display:none;background:var(--red-bg);color:var(--red);border-color:#e8c0c0;">
+        🗑 선택 삭제 <span id="delete-count"></span>
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="backupJSON()">💾 백업</button>
+      <button class="btn btn-outline btn-sm" onclick="triggerRestore()">📂 복원</button>
+      <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="restoreJSON(event)">
+      <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ CSV 내보내기</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table id="reorder-table">
+      <thead>
+        <tr>
+          <th style="width:36px"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" title="전체 선택"></th>
+          <th style="width:110px">발주번호</th>
+          <th style="width:90px">거래처</th>
+          <th style="min-width:440px">품목 (코드 · 상품명 · 수량)</th>
+          <th class="num" style="width:56px">총수량</th>
+          <th style="width:116px">입고 예정일</th>
+          <th style="width:116px">예약배송일</th>
+          <th style="width:60px">D-Day</th>
+          <th style="width:96px">상태</th>
+          <th style="width:148px">메모</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">📦</div>
+      <p>등록된 리오더가 없습니다</p>
+      <span>발주서 xlsx 업로드 또는 직접 추가 버튼을 눌러주세요</span>
+    </div>
+  </div>
+
+  <!-- 이카운트 발주서 보관함 -->
+  <div style="margin-top:28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;color:var(--text)">
+        📁 이카운트 발주서 보관함
+        <span id="ecount-file-count" style="font-size:11px;font-weight:400;color:var(--text-sub);margin-left:6px"></span>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('ecount-store-input').click()">+ 파일 추가</button>
+      <input type="file" id="ecount-store-input" accept=".xlsx,.xls,.pdf,.csv" multiple style="display:none" onchange="storeEcountFiles(event.target.files)">
+    </div>
+    <div id="ecount-file-list" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);min-height:60px">
+      <div id="ecount-file-empty" style="padding:24px;text-align:center;font-size:12px;color:var(--text-sub)">저장된 발주서가 없습니다. 파일 추가 버튼을 눌러 업로드하세요.</div>
+    </div>
+  </div>
+</main>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">리오더 직접 추가</h3>
+    <div class="modal-row">
+      <div class="modal-field">
+        <label>전표번호 <span style="font-size:11px;color:var(--text-sub);font-weight:400">예: 2026/04/21 -5</span></label>
+        <input type="text" class="modal-input" id="m-order-id" placeholder="이카운트 일련번호 입력">
+      </div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field">
+        <label>요청일</label>
+        <input type="date" class="modal-input" id="m-req-date">
+      </div>
+      <div class="modal-field">
+        <label>입고 예정일</label>
+        <input type="date" class="modal-input" id="m-arrival-date">
+      </div>
+      <div class="modal-field">
+        <label>예약배송일</label>
+        <input type="date" class="modal-input" id="m-ship-date">
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>거래처</label>
+      <input type="text" class="modal-input" id="m-supplier" placeholder="예: 가온디자인">
+    </div>
+    <div class="modal-field">
+      <label>메모</label>
+      <input type="text" class="modal-input" id="m-memo" placeholder="특이사항">
+    </div>
+    <div class="modal-field">
+      <label>품목 목록</label>
+      <div class="modal-products" id="modal-products-list"></div>
+      <div class="add-product-row" style="margin-top:8px">
+        <div class="product-input-wrap" style="flex:1">
+          <input type="text" class="product-input" id="modal-product-search"
+            placeholder="상품코드 또는 상품명 검색..." autocomplete="off"
+            oninput="modalProductSearch(this)" onkeydown="modalProductKeydown(event)">
+          <div class="autocomplete-list" id="modal-ac-list"></div>
+        </div>
+        <input type="number" id="modal-product-qty" class="modal-input" style="width:80px;flex-shrink:0" placeholder="수량" min="1">
+        <button class="btn btn-outline btn-sm" onclick="addModalProduct()">추가</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveModal()">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Product Management Modal -->
+<div class="modal-overlay" id="product-modal">
+  <div class="modal" style="width:620px">
+    <h3>상품 관리</h3>
+    <p style="font-size:12px;color:var(--text-sub);margin-bottom:16px;margin-top:-12px">신규 상품 등록 및 기존 상품 삭제. 이카운트 DB와는 별개로 이 페이지 내에서만 사용됩니다.</p>
+
+    <!-- 신규 등록 -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;align-items:flex-end">
+      <div style="flex:1">
+        <label style="font-size:12px;color:var(--text-sub);font-weight:500;display:block;margin-bottom:4px">상품코드</label>
+        <input type="text" class="modal-input" id="new-product-code" placeholder="예: 126BG999BK" style="font-family:monospace">
+      </div>
+      <div style="flex:2">
+        <label style="font-size:12px;color:var(--text-sub);font-weight:500;display:block;margin-bottom:4px">상품명</label>
+        <input type="text" class="modal-input" id="new-product-name" placeholder="예: 뉴 버블백_블랙"
+          onkeydown="if(event.key==='Enter') addCustomProduct()">
+      </div>
+      <button class="btn btn-primary btn-sm" style="flex-shrink:0;height:36px" onclick="addCustomProduct()">+ 등록</button>
+    </div>
+
+    <!-- 등록된 신규 상품 목록 -->
+    <div style="font-size:12px;color:var(--text-sub);font-weight:500;margin-bottom:6px">
+      등록된 신규 상품 <span id="custom-product-count" style="color:var(--accent)"></span>
+    </div>
+    <div id="custom-product-list"
+      style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius)">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeProductModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Product DB ───────────────────────────────────────────────────────────────
+const PRODUCTS = [{"code":"00003","name":"[불량] 블루밍 백팩_블랙"},{"code":"00004","name":"[불량] 블루밍 백팩_딥블루"},{"code":"00010","name":"샘플세일_5000"},{"code":"00011","name":"샘플세일_10000"},{"code":"026AC698BL","name":"케이스위스 도트 버블 파우치_글로시 블루"},{"code":"026AC698BR","name":"케이스위스 도트 버블 파우치_글로시 브라운"},{"code":"026AC698SV","name":"케이스위스 도트 버블 파우치_글로시 실버"},{"code":"026BG697BL","name":"케이스위스 도트 버블백_글로시 블루"},{"code":"026BG697BR","name":"케이스위스 도트 버블백_글로시 브라운"},{"code":"026BG697SV","name":"케이스위스 도트 버블백_글로시 실버"},{"code":"100002","name":"크루아상M_솔트그레이"},{"code":"100003","name":"크루아상M_민트"},{"code":"100007","name":"크루아상L_블랙"},{"code":"100015","name":"크루아상M_커스타드베이지"},{"code":"100017","name":"스몰퍼피토트_오렌지"},{"code":"100020","name":"글로시하프문_크림"},{"code":"100021","name":"글로시하프문_블랙"},{"code":"100082","name":"드로스트링_네이비"},{"code":"100094","name":"퍼피하프문_블랙"},{"code":"100104","name":"멀티포켓 백팩_블랙"},{"code":"100121","name":"글로시라지쇼퍼_크림"},{"code":"100123","name":"글로시하프문_그린"},{"code":"100124","name":"글로시하프문_카멜"},{"code":"100125","name":"스톤 크루아상M_블랙"},{"code":"100127","name":"스톤 크루아상M_그레이"},{"code":"100129","name":"스톤 크루아상M_머스타드"},{"code":"100150","name":"립스퀘어_코랄"},{"code":"100157","name":"시폰라운드_라임"},{"code":"100159","name":"멀티포켓 백팩_글로시블랙"},{"code":"100163","name":"오버사이즈 메신저백_글로시네이비"},{"code":"100164","name":"오버사이즈 메신저백_크림"},{"code":"100165","name":"렉탱글 메신저백_글로시블랙"},{"code":"100169","name":"크리즈스몰_라벤더"},{"code":"100183","name":"립라운드_코랄"},{"code":"100192","name":"오버사이즈 메신저백_실버"},{"code":"100210","name":"패디드스몰토트_그레이"},{"code":"100211","name":"패디드스몰토트_아이보리"},{"code":"100224","name":"소프트퍼토트백_블랙"},{"code":"100225","name":"소프트퍼토트백_더스티블루"},{"code":"100240","name":"다이애그널 버튼셔츠_화이트"},{"code":"100241","name":"다이애그널 버튼셔츠_핑크"},{"code":"100242","name":"턱스트링 스커트_블랙"},{"code":"100243","name":"턱스트링 스커트_블루"},{"code":"100244","name":"턱스트링 스커트_그레이"},{"code":"100250","name":"패널드레스_민트"},{"code":"100251","name":"티어드밴딩백팩_블랙"},{"code":"100252","name":"티어드밴딩백팩_차콜"},{"code":"100254","name":"티어드밴딩백팩_레몬"},{"code":"100260","name":"M티어드크로스_핑크"},{"code":"100264","name":"라운드월렛_네이비"},{"code":"100266","name":"아보카도 슬링백_블랙"},{"code":"100267","name":"아보카도 슬링백_그레이"},{"code":"100268","name":"아보카도 슬링백_라벤더"},{"code":"100270","name":"에센셜 크로스백_그레이"},{"code":"100278","name":"티어드밴딩백팩_실버"},{"code":"100300","name":"스트롤백_실버"},{"code":"100301","name":"오버사이즈 메신저백_무광블랙"},{"code":"100303","name":"미니티어드_그레이"},{"code":"100304","name":"미니티어드_크림"},{"code":"100305","name":"미니티어드_그린"},{"code":"100307","name":"실키 티어드 버캣백_그레이"},{"code":"100312","name":"패딩 랩스커트_블랙"},{"code":"100314","name":"패딩 랩스커트_아이보리"},{"code":"100315","name":"벌룬블루종_블랙"},{"code":"100316","name":"벌룬블루종_브라운"},{"code":"100322","name":"메리노울 가디건_그린"},{"code":"100324","name":"메리노울 핸드워머_그레이"},{"code":"100325","name":"메리노울 핸드워머_그린"},{"code":"100326","name":"메리노울 핸드워머_바이올렛"},{"code":"100330","name":"부클 비니_블랙"},{"code":"100334","name":"디태쳐블드레스_딥그린"},{"code":"100335","name":"디태쳐블드레스_퍼플"},{"code":"100336","name":"립보스턴 라지백_블랙"},{"code":"100338","name":"립보스턴 라지백_실버"},{"code":"100339","name":"립보스턴 라지백_퍼플"},{"code":"100343","name":"립보스턴 스몰백_퍼플"},{"code":"100344","name":"스티치 라지 더플백_블랙"},{"code":"100347","name":"스티치 스몰 더플백_블랙"},{"code":"100349","name":"스티치 스몰 더플백_그레이"},{"code":"100350","name":"커브퀼팅드크로스백_블랙"},{"code":"100356","name":"개더드 백팩_오렌지러스트"},{"code":"100359","name":"박스 월렛백_퍼플"},{"code":"100362","name":"패딩 버켓햇_블랙"},{"code":"100363","name":"패딩 버켓햇_베이지"},{"code":"100377","name":"글로시하프문_블랙_C"},{"code":"100378","name":"글로시하프문_크림_C"},{"code":"100379","name":"글로시하프문_그레이_C"},{"code":"100383","name":"엠커브퀼티드백_블랙"},{"code":"100385","name":"엠커브퀼티드백_더스티블루"},{"code":"100387","name":"멀티포켓 백팩_글로시블랙_C"},{"code":"100388","name":"멀티포켓 백팩_글로시네이비_C"},{"code":"100389","name":"멀티포켓 백팩_실버_C"},{"code":"100393","name":"렉탱글 메신저백_크림_C"},{"code":"100394","name":"랩탑 클러치 13_블랙"},{"code":"100397","name":"랩탑 클러치 13_아이보리"},{"code":"100401","name":"랩탑 클러치 16_아이보리"},{"code":"100402","name":"개더드 미니 백팩_블랙"},{"code":"100403","name":"개더드 미니 백팩_딥그린"},{"code":"100404","name":"개더드 미니 백팩_오렌지러스트"},{"code":"100409","name":"레이크 13 랩탑 클러치_트리플블랙"},{"code":"100411","name":"레이크 13 랩탑 클러치_실버"},{"code":"100413","name":"레이크 16 랩탑 클러치_트리플블랙"},{"code":"100416","name":"레이크 16 랩탑 클러치_크림"},{"code":"100417","name":"미니티어드_라이트그린"},{"code":"100418","name":"미니티어드_실버"},{"code":"100420","name":"개더드 미니 백팩_베이지"},{"code":"100423","name":"브리즈 롱 티셔츠_블루"},{"code":"100424","name":"브리즈 롱 티셔츠_퍼플"},{"code":"100425","name":"브리즈 부츠 레깅스_블랙"},{"code":"100426","name":"브리즈 부츠 레깅스_아이보리"},{"code":"100427","name":"브리즈 부츠 레깅스_블루"},{"code":"100428","name":"패스 스웻셔츠_아이보리"},{"code":"100430","name":"패스 스웻셔츠_퍼플"},{"code":"100432","name":"M티어드크로스_레몬_C"},{"code":"100433","name":"M티어드크로스_블랙_C"},{"code":"100434","name":"M티어드크로스_블루_C"},{"code":"100435","name":"M티어드크로스_실버_C"},{"code":"100436","name":"M티어드크로스_차콜_C"},{"code":"100437","name":"티어드밴딩백팩_글로시블랙_C"},{"code":"100442","name":"트와일라잇 나일론 블루종_블랙"},{"code":"100443","name":"트와일라잇 나일론 블루종_아이보리"},{"code":"100444","name":"트와일라잇 나일론 블루종_블루"},{"code":"100445","name":"헤이즈 쉬어 랩 스커트_블랙"},{"code":"100446","name":"헤이즈 쉬어 랩 스커트_그레이"},{"code":"100447","name":"헤이즈 쉬어 랩 스커트_핑크"},{"code":"100448","name":"벨리 립 가디건_블랙"},{"code":"100449","name":"벨리 립 가디건_아이보리"},{"code":"100451","name":"플로라 타이 베스트_블랙"},{"code":"100452","name":"플로라 타이 베스트_아이보리"},{"code":"100453","name":"플로라 타이 베스트_블루"},{"code":"100457","name":"원더 크로스백_라이트퍼플"},{"code":"100458","name":"페블 숄더백_블랙"},{"code":"100461","name":"페블 월렛_블랙"},{"code":"100462","name":"페블 월렛_네이비"},{"code":"100464","name":"페블 월렛_실버"},{"code":"100465","name":"페블 월렛_퍼플"},{"code":"100480","name":"페블 목걸이_실버"},{"code":"100481","name":"페블 목걸이_골드"},{"code":"100482","name":"펄 핀참_실버"},{"code":"100483","name":"문 볼 키링_실버"},{"code":"100495","name":"글로우 라지 백_퍼플"},{"code":"100496","name":"미니 에코백_퍼플"},{"code":"1004961","name":"미니 에코백_그린"},{"code":"100498","name":"드로스트링_블랙_C"},{"code":"100499","name":"드로스트링_더스티블루_C"},{"code":"100500","name":"드로스트링_마티니올리브_C"},{"code":"100502","name":"헤이즈 쉬어 랩 스커트_화이트"},{"code":"100505","name":"클라우드 슬리브리스탑_민트"},{"code":"100506","name":"클라우드 슬리브리스탑_차콜"},{"code":"100507","name":"티어드밴딩백팩_레몬_C"},{"code":"100508","name":"티어드밴딩백팩_블랙_C"},{"code":"100509","name":"티어드밴딩백팩_블루_C"},{"code":"100510","name":"티어드밴딩백팩_실버(실버끈)_C"},{"code":"100511","name":"윈디 벌룬 드레스_차콜"},{"code":"100512","name":"윈디 벌룬 드레스_블루"},{"code":"100513","name":"윈디 벌룬 드레스_화이트"},{"code":"100519","name":"원더러스트 티셔츠_퍼플"},{"code":"100520","name":"원더러스트 티셔츠_화이트"},{"code":"100521","name":"원더러스트 티셔츠_네이비"},{"code":"100522","name":"원더러스트 볼캡_퍼플"},{"code":"100523","name":"원더러스트 볼캡_그레이"},{"code":"100524","name":"원더러스트 볼캡_네이비"},{"code":"100525","name":"선플라워 캡_블랙"},{"code":"100526","name":"선플라워 캡_블루"},{"code":"100527","name":"선플라워 캡_민트"},{"code":"100528","name":"선플라워 캡_아이보리"},{"code":"100529","name":"스타 숄더백_블랙"},{"code":"100530","name":"스타 숄더백_실버"},{"code":"100531","name":"스타 숄더백_그린"},{"code":"100532","name":"립보스턴 XL백_차콜"},{"code":"100534","name":"박스 블록백_차콜"},{"code":"100536","name":"익스플로어백팩_라임"},{"code":"100538","name":"티어드밴딩백팩_차콜_C"},{"code":"100539","name":"티어드밴딩백팩_핑크_C"},{"code":"124BG006BK","name":"블루밍 백팩_블랙"},{"code":"124BG006BL","name":"블루밍 백팩_딥블루"},{"code":"124BG006GY","name":"블루밍 백팩_그레이"},{"code":"124BG006IV","name":"블루밍 백팩_크림"},{"code":"124BG006LB","name":"블루밍 백팩_아이스블루"},{"code":"124BG007BK","name":"블루밍 미니 백팩_블랙"},{"code":"124BG007BL","name":"블루밍 미니 백팩_딥블루"},{"code":"124BG007GY","name":"블루밍 미니 백팩_그레이"},{"code":"124BG007LB","name":"블루밍 미니 백팩_아이스블루"},{"code":"124BG011BK","name":"블루밍 호보백_블랙"},{"code":"124BG011BL","name":"블루밍 호보백_딥블루"},{"code":"124BG011GY","name":"블루밍 호보백_그레이"},{"code":"124BG011IV","name":"블루밍 호보백_크림"},{"code":"124BG011LB","name":"블루밍 호보백_아이스블루"},{"code":"125AC643BK","name":"페블릿 카드 홀더_블랙"},{"code":"125AC643BR","name":"페블릿 카드 홀더_브라운"},{"code":"125AC643LB","name":"페블릿 카드 홀더_라이트블루"},{"code":"125AC643SV","name":"페블릿 카드 홀더_실버"},{"code":"125AC644BK","name":"타이니 킵 백_블랙"},{"code":"125AC644PP","name":"타이니 킵 백_퍼플"},{"code":"125AC644RD","name":"타이니 킵 백_레드"},{"code":"125AC644WH","name":"타이니 킵 백_화이트"},{"code":"125AC653BK","name":"썬 앤 레인 엄브렐라_블랙"},{"code":"125AC653IV","name":"썬 앤 레인 엄브렐라_아이보리"},{"code":"125AC656BK","name":"멜로우 키링_블랙"},{"code":"125AC656GN","name":"멜로우 키링_그린"},{"code":"125AC656YL","name":"멜로우 키링_옐로우"},{"code":"125AC657BK","name":"페블 그립톡 스탠드_블랙"},{"code":"125AC657IV","name":"페블 그립톡 스탠드_아이보리"},{"code":"125AC657LB","name":"페블 그립톡 스탠드_라이트블루"},{"code":"125AC658SV","name":"페블 그립톡 스탠드_실버"},{"code":"125AC659BK","name":"카라 참_매트 블랙"},{"code":"125AC659IV","name":"카라 참_아이보리"},{"code":"125AC659LB","name":"카라 참_라이트블루"},{"code":"125AC659SV","name":"카라 참_실버"},{"code":"125AC660WH","name":"맥세이프_화이트"},{"code":"125AC664GY","name":"캐리 스트랩_그레이"},{"code":"125AC664LB","name":"캐리 스트랩_라이트 블루"},{"code":"125AC664LE","name":"캐리 스트랩_레몬"},{"code":"125AC664NV","name":"캐리 스트랩_네이비"},{"code":"125AC665IV","name":"페블 그립톡 스탠드_아이보리 (맥세이프)"},{"code":"125AC665LB","name":"페블 그립톡 스탠드_라이트 블루 (맥세이프)"},{"code":"125AC665SV","name":"페블 그립톡 스탠드_실버 (맥세이프)"},{"code":"125BG638BK","name":"더블 라운드 숄더백_매트 블랙"},{"code":"125BG638BR","name":"더블 라운드 숄더백_브라운"},{"code":"125BG638IV","name":"더블 라운드 숄더백_아이보리"},{"code":"125BG638LB","name":"더블 라운드 숄더백_라이트블루"},{"code":"125BG639BK","name":"그레인 숄더백_매트 블랙"},{"code":"125BG639BR","name":"그레인 숄더백_브라운"},{"code":"125BG639IV","name":"그레인 숄더백_아이보리"},{"code":"125BG639LB","name":"그레인 숄더백_라이트블루"},{"code":"125BG640BK","name":"미니 그레인 토트백_매트 블랙"},{"code":"125BG640BR","name":"미니 그레인 토트백_브라운"},{"code":"125BG640IV","name":"미니 그레인 토트백_아이보리"},{"code":"125BG640LB","name":"미니 그레인 토트백_라이트블루"},{"code":"125BG641BK","name":"네스트 메쉬 숄더백_블랙"},{"code":"125BG641IV","name":"네스트 메쉬 숄더백_아이보리"},{"code":"125BG641SV","name":"네스트 메쉬 숄더백_실버"},{"code":"125BG642BK","name":"폰드 월렛백_매트 블랙"},{"code":"125BG642BR","name":"폰드 월렛백_브라운"},{"code":"125BG642IV","name":"폰드 월렛백_아이보리"},{"code":"125BG642LB","name":"폰드 월렛백_라이트블루"},{"code":"125BG643IV","name":"페블릿 카드 홀더_아이보리"},{"code":"125BG661BK","name":"라지 탱글 트위스트 백_블랙"},{"code":"125BG661BL","name":"라지 탱글 트위스트 백_블루"},{"code":"125BG661LB","name":"라지 탱글 트위스트 백_라이트 블루"},{"code":"125BG661RD","name":"라지 탱글 트위스트 백_레드"},{"code":"125BG661WH","name":"라지 탱글 트위스트 백_화이트"},{"code":"125BG662LB","name":"스몰 에코백_라이트블루"},{"code":"125BG663LB","name":"라지 에코백_라이트블루"},{"code":"126AC701LE","name":"나이스 워크 투데이 월렛_레몬"},{"code":"126AC701NV","name":"나이스 워크 투데이 월렛_네이비"},{"code":"126AC701PN","name":"나이스 워크 투데이 월렛_핑크"},{"code":"126AC701WH","name":"나이스 워크 투데이 월렛_화이트"},{"code":"126AC704","name":"레이크 스트랩"},{"code":"126BG687BK","name":"글로시 라지 탱글 트위스트백_블랙"},{"code":"126BG687BR","name":"글로시 라지 탱글 트위스트백_브라운"},{"code":"126BG687GN","name":"글로시 라지 탱글 트위스트백_틸 그린"},{"code":"126BG687IV","name":"글로시 라지 탱글 트위스트백_아이보리"},{"code":"126BG687PN","name":"글로시 라지 탱글 트위스트백_애쉬 핑크"},{"code":"126BG687YL","name":"글로시 라지 탱글 트위스트백_머스타드"},{"code":"126BG688BK","name":"글로시 미드 탱글 트위스트백_블랙"},{"code":"126BG688BR","name":"글로시 미드 탱글 트위스트백_브라운"},{"code":"126BG688GN","name":"글로시 미드 탱글 트위스트백_틸 그린"},{"code":"126BG688IV","name":"글로시 미드 탱글 트위스트백_아이보리"},{"code":"126BG688PN","name":"글로시 미드 탱글 트위스트백_애쉬 핑크"},{"code":"126BG688YL","name":"글로시 미드 탱글 트위스트백_머스타드"},{"code":"126BG689BK","name":"글로시 스몰 탱글 트위스트백_블랙"},{"code":"126BG689BR","name":"글로시 스몰 탱글 트위스트백_브라운"},{"code":"126BG689GN","name":"글로시 스몰 탱글 트위스트백_틸 그린"},{"code":"126BG689IV","name":"글로시 스몰 탱글 트위스트백_아이보리"},{"code":"126BG689PN","name":"글로시 스몰 탱글 트위스트백_애쉬 핑크"},{"code":"126BG689YL","name":"글로시 스몰 탱글 트위스트백_머스타드"},{"code":"126BG690BK","name":"립 백_블랙"},{"code":"126BG690BL","name":"립 백_블루"},{"code":"126BG690PP","name":"립 백_퍼플"},{"code":"126BG690WH","name":"립 백_화이트"},{"code":"126BG691GN","name":"도트 버블백_그린"},{"code":"126BG692BL","name":"도트 버블백_글로시 블루"},{"code":"126BG693IV","name":"도트 버블백_글로시 아이보리"},{"code":"126BG694BK","name":"라지 탱글 트위스트백_블랙"},{"code":"126BG694RD","name":"라지 탱글 트위스트백_레드"},{"code":"126BG696RD","name":"스몰 탱글 트위스트백_레드"},{"code":"126BG699BL","name":"나이스 워크 투데이 에코백_더스티 블루"},{"code":"126BG699LE","name":"나이스 워크 투데이 에코백_레몬"},{"code":"126BG699NV","name":"나이스 워크 투데이 에코백_네이비"},{"code":"126BG699PN","name":"나이스 워크 투데이 에코백_핑크"},{"code":"126BG699WH","name":"나이스 워크 투데이 에코백_화이트"},{"code":"126BG700CH","name":"나이스 워크 투데이 랩탑 파우치_차콜"},{"code":"126BG700LG","name":"나이스 워크 투데이 랩탑 파우치_라이트 그레이"},{"code":"126BG700MT","name":"나이스 워크 투데이 랩탑 파우치_민트"},{"code":"126BG703BK","name":"립보스턴 스몰백_블랙"},{"code":"126HW702CH","name":"나이스 워크 투데이 볼캡_차콜"},{"code":"126HW702GN","name":"나이스 워크 투데이 볼캡_그린"},{"code":"126HW702IV","name":"나이스 워크 투데이 볼캡_아이보리"},{"code":"126HW702NV","name":"나이스 워크 투데이 볼캡_네이비"},{"code":"126HW702PN","name":"나이스 워크 투데이 볼캡_핑크"},{"code":"200004","name":"미니 지갑"},{"code":"224BG001BK","name":"블루밍 크로스백_블랙"},{"code":"224BG001BL","name":"블루밍 크로스백_딥블루"},{"code":"224BG001GY","name":"블루밍 크로스백_그레이"},{"code":"224BG001IV","name":"블루밍 크로스백_크림"},{"code":"224BG001LB","name":"블루밍 크로스백_아이스블루"},{"code":"225AC652BK","name":"미스트 스퀘어 스크런치_블랙"},{"code":"225AC652IV","name":"미스트 스퀘어 스크런치_아이보리"},{"code":"225AC652LB","name":"미스트 스퀘어 스크런치_라이트블루"},{"code":"225BG651BG","name":"미스트 백_버건디"},{"code":"225BG651BK","name":"미스트 백_블랙"},{"code":"225BG651GN","name":"미스트 백_그린"},{"code":"225BG651IV","name":"미스트 백_아이보리"},{"code":"225BG666BK","name":"미드 탱글 트위스트백_블랙"},{"code":"225BG666BL","name":"미드 탱글 트위스트백_블루"},{"code":"225BG666LB","name":"미드 탱글 트위스트백_라이트 블루"},{"code":"225BG666RD","name":"미드 탱글 트위스트백_레드"},{"code":"225BG666WH","name":"미드 탱글 트위스트백_화이트"},{"code":"225DR645BK","name":"스웨이 드레스_블랙"},{"code":"225DR645LB","name":"스웨이 드레스_라이트블루"},{"code":"225DR645WH","name":"스웨이 드레스_화이트"},{"code":"225DR646BE","name":"베일 드레스_버터"},{"code":"225DR646BK","name":"베일 드레스_블랙"},{"code":"225DR646LB","name":"베일 드레스_라이트블루"},{"code":"225SK648BK","name":"팝업 랩스커트_블랙"},{"code":"225SK648LB","name":"팝업 랩스커트_라이트 블루"},{"code":"225SK648LE","name":"팝업 랩스커트_레몬"},{"code":"225SK648WH","name":"팝업 랩스커트_화이트"},{"code":"225SK650CH","name":"플로트 스커트_차콜"},{"code":"225SK650LB","name":"플로트 스커트_라이트 블루"},{"code":"225SK650WH","name":"플로트 스커트_화이트"},{"code":"225TP647GY","name":"에어라이트 투웨이 아노락_그레이"},{"code":"225TP647LE","name":"에어라이트 투웨이 아노락_레몬"},{"code":"225TP647PN","name":"에어라이트 투웨이 아노락_핑크"},{"code":"225TP647WH","name":"에어라이트 투웨이 아노락_화이트"},{"code":"225TP649CH","name":"플로트 개더드 탑_차콜"},{"code":"225TP649LB","name":"플로트 개더드 탑_라이트 블루"},{"code":"225TP649WH","name":"플로트 개더드 탑_화이트"},{"code":"2964100003","name":"미니 에코백 (랜덤)"},{"code":"2964100004","name":"라지 에코백 (랜덤)"},{"code":"323BG001BK","name":"립보스턴 라지백_블랙"},{"code":"323BG001CH","name":"립보스턴 라지백_챠콜"},{"code":"323BG002BK","name":"립보스턴 스몰백_블랙"},{"code":"323BG002CH","name":"립보스턴 스몰백_챠콜"},{"code":"323BG002SV","name":"립보스턴 스몰백_실버"},{"code":"324AC599BK","name":"Heart Cushion_Black"},{"code":"324AC599BL","name":"Heart Cushion_Blue"},{"code":"324AC599PP","name":"Heart Cushion_Purple"},{"code":"324AC599RD","name":"Heart Cushion_Red"},{"code":"324AC599SV","name":"Heart Cushion_Silver"},{"code":"324AC600BK","name":"커스텀 하트 키링_블랙"},{"code":"324AC600PP","name":"커스텀 하트 키링_퍼플"},{"code":"324AC600SV","name":"커스텀 하트 키링_실버"},{"code":"324AC604BK","name":"마일스톤 월렛_블랙"},{"code":"324AC604BL","name":"마일스톤 월렛_블루"},{"code":"324AC604BR","name":"마일스톤 월렛_브라운"},{"code":"324AC604SV","name":"마일스톤 월렛_실버"},{"code":"324AC605BK","name":"마일스톤 파우치_블랙"},{"code":"324AC605BL","name":"마일스톤 파우치_블루"},{"code":"324AC605BR","name":"마일스톤 파우치_브라운"},{"code":"324AC605SV","name":"마일스톤 파우치_실버"},{"code":"324AC608BL","name":"Paris Walk Ball Cap_Blue"},{"code":"324AC608CH","name":"Paris Walk Ball Cap_Charcoal"},{"code":"324AC608GP","name":"Paris Walk Ball Cap_Green"},{"code":"324AC608GR","name":"Paris Walk Ball Cap_Green White"},{"code":"324AC608GY","name":"Paris Walk Ball Cap_Gray"},{"code":"324AC611","name":"[GIFT] Paris Keychain"},{"code":"324AC612","name":"[GIFT] Paris Postcard Pack"},{"code":"324AC615BK","name":"글로시 스크런치_블랙"},{"code":"324AC615SV","name":"글로시 스크런치_실버"},{"code":"324AC621BR","name":"엠버 핸드워머_브라운"},{"code":"324AC621GY","name":"엠버 핸드워머_그레이"},{"code":"324AC621IV","name":"엠버 핸드워머_아이보리"},{"code":"324AC621NV","name":"엠버 핸드워머_네이비"},{"code":"324AP609BL","name":"Paris Walk T-shirt_Blue"},{"code":"324AP609GR","name":"Paris Walk T-shirt_Green"},{"code":"324AP609GY","name":"Paris Walk T-shirt_Gray"},{"code":"324AP609NV","name":"Paris Walk T-shirt_Navy"},{"code":"324AP610WH","name":"Paris Walk T-shirt_White"},{"code":"324BG601BK","name":"레이크 13 랩탑 클러치_트리플블랙_C"},{"code":"324BG601BL","name":"레이크 13 랩탑 클러치_블루_C"},{"code":"324BG601BR","name":"레이크 13 랩탑 클러치_브라운_C"},{"code":"324BG601CR","name":"레이크 13 랩탑 클러치_크림_C"},{"code":"324BG601SV","name":"레이크 13 랩탑 클러치_실버_C"},{"code":"324BG602BK","name":"레이크 16 랩탑 클러치_트리플블랙_C"},{"code":"324BG602BL","name":"레이크 16 랩탑 클러치_블루_C"},{"code":"324BG602BR","name":"레이크 16 랩탑 클러치_브라운_C"},{"code":"324BG602CR","name":"레이크 16 랩탑 클러치_크림_C"},{"code":"324BG602SV","name":"레이크 16 랩탑 클러치_실버_C"},{"code":"324BG603BK","name":"마일스톤 에코백_블랙"},{"code":"324BG603BR","name":"마일스톤 에코백_브라운"},{"code":"324BG603CR","name":"마일스톤 에코백_크림"},{"code":"324BG603SV","name":"마일스톤 에코백_실버"},{"code":"324BG606BL","name":"Paris Walk Lettering Eco Bag_Blue"},{"code":"324BG606GR","name":"Paris Walk Lettering Eco Bag_Green"},{"code":"324BG606NV","name":"Paris Walk Lettering Eco Bag_Navy"},{"code":"324BG607GR","name":"Artwork in Paris Eco Bag_Green"},{"code":"324BG607GY","name":"Artwork in Paris Eco Bag_Gray"},{"code":"324BG607IV","name":"Artwork in Paris Eco Bag_Ivory"},{"code":"324BG607NV","name":"Artwork in Paris Eco Bag_Navy"},{"code":"324HW613BK","name":"노마드 바라클라바_블랙"},{"code":"324HW613BL","name":"노마드 바라클라바_블루"},{"code":"324HW613BR","name":"노마드 바라클라바_브라운"},{"code":"324HW613GY","name":"노마드 바라클라바_그레이"},{"code":"324HW613LE","name":"노마드 바라클라바_레몬"},{"code":"324HW614BK","name":"모스 버킷 비니_블랙"},{"code":"324HW614BR","name":"모스 버킷 비니_브라운"},{"code":"324HW614IV","name":"모스 버킷 비니_아이보리"},{"code":"324HW614LB","name":"모스 버킷 비니_라이트블루"},{"code":"324ST612BL","name":"호라이즌 스웨터_라이트블루"},{"code":"324ST612BR","name":"호라이즌 스웨터_브라운"},{"code":"324ST612PK","name":"호라이즌 스웨터_핑크"},{"code":"324ST622BK","name":"플로우 투웨이 크롭 니트_블랙"},{"code":"324ST622BR","name":"플로우 투웨이 크롭 니트_브라운"},{"code":"324ST622GY","name":"플로우 투웨이 크롭 니트_그레이"},{"code":"324ST622LE","name":"플로우 투웨이 크롭 니트_레몬"},{"code":"325BG667BK","name":"글로시 라지 탱글 트위스트백_블랙"},{"code":"325BG667BR","name":"글로시 라지 탱글 트위스트백_브라운"},{"code":"325BG668BK","name":"글로시 미드 탱글 트위스트백_블랙"},{"code":"325BG668BR","name":"글로시 미드 탱글 트위스트백_브라운"},{"code":"325BG669BK","name":"패널 크로스백_블랙"},{"code":"325BG669BL","name":"패널 크로스백_블루"},{"code":"325BG669PP","name":"패널 크로스백_퍼플"},{"code":"325BG670BK","name":"글로시 패널 크로스백_블랙"},{"code":"325BG670BR","name":"글로시 패널 크로스백_브라운"},{"code":"325BG671BK","name":"포케터 백팩_블랙"},{"code":"325BG671BL","name":"포케터 백팩_블루"},{"code":"325BG671PP","name":"포케터 백팩_퍼플"},{"code":"325BG672BK","name":"글로시 포케터 백팩_블랙"},{"code":"325BG672BR","name":"글로시 포케터 백팩_브라운"},{"code":"325BG673BG","name":"웨이 원숄더백_버건디"},{"code":"325BG673BR","name":"웨이 원숄더백_브라운"},{"code":"325BG673NV","name":"웨이 원숄더백_네이비"},{"code":"325BG673PP","name":"웨이 원숄더백_퍼플"},{"code":"325BG674BK","name":"웨이 원숄더백_믹스블랙"},{"code":"325BG675BG","name":"웨이 호보백_버건디"},{"code":"325BG675BK","name":"웨이 호보백_블랙"},{"code":"325BG675BR","name":"웨이 호보백_브라운"},{"code":"325BG675NV","name":"웨이 호보백_네이비"},{"code":"325BG675PP","name":"웨이 호보백_퍼플"},{"code":"325BG676PP","name":"그리드 더플 라지백_퍼플"},{"code":"325BG677BK","name":"글로시 그리드 더플 라지백_블랙"},{"code":"325BG677BR","name":"글로시 그리드 더플 라지백_브라운"},{"code":"325BG678PP","name":"그리드 더플 스몰백_퍼플"},{"code":"325BG679BK","name":"글로시 그리드 더플 스몰백_블랙"},{"code":"325BG679BR","name":"글로시 그리드 더플 스몰백_브라운"},{"code":"325BG680BR","name":"도트 버블백_브라운"},{"code":"325BG680CH","name":"도트 버블백_차콜"},{"code":"325BG681BK","name":"도트 버블백_글로시 블랙"},{"code":"325BG681PL","name":"도트 버블백_글로시 퍼플"},{"code":"325BG681SV","name":"도트 버블백_글로시 실버"},{"code":"424BG623BK","name":"드로스트링 백_잉크 블랙"},{"code":"424BG623BL","name":"드로스트링 백_인디고 블루"},{"code":"424BG624BK","name":"리서치 스몰백_블랙"},{"code":"424BG624KH","name":"리서치 스몰백_카키"},{"code":"424BG625BK","name":"리서치 라지백_블랙"},{"code":"424BG625KH","name":"리서치 라지백_카키"},{"code":"424BG625SV","name":"리서치 라지백_실버"},{"code":"424BG626DB","name":"인터뷰 스몰백_초콜렛"},{"code":"424BG626GY","name":"인터뷰 스몰백_그레이"},{"code":"424BG626PP","name":"인터뷰 스몰백_퍼플"},{"code":"424BG627DB","name":"인터뷰 미디움백_초콜렛"},{"code":"424BG627GY","name":"인터뷰 미디움백_그레이"},{"code":"424BG628BE","name":"인터뷰 미디움백_베이지"},{"code":"424BG628BL","name":"인터뷰 미디움백_블루"},{"code":"424BG628BR","name":"인터뷰 미디움백_브라운"},{"code":"424BG628YL","name":"인터뷰 미디움백_옐로우"},{"code":"424BG629DB","name":"인터뷰 라지백_초콜렛"},{"code":"424BG629GY","name":"인터뷰 라지백_그레이"},{"code":"424BG630BL","name":"인터뷰 라지백_블루"},{"code":"424BG630BR","name":"인터뷰 라지백_브라운"},{"code":"424BG630YL","name":"인터뷰 라지백_옐로우"},{"code":"424BG631BK","name":"인터뷰 미디움백_스웨이드 블랙"},{"code":"424BG631BR","name":"인터뷰 미디움백_스웨이드 브라운"},{"code":"424BG631CM","name":"인터뷰 미디움백_스웨이드 카멜"},{"code":"424BG632BK","name":"스케줄 미디움 백팩_블랙"},{"code":"424BG632BR","name":"스케줄 미디움 백팩_브라운"},{"code":"424BG632GY","name":"스케줄 미디움 백팩_그레이"},{"code":"424BG633BK","name":"스케줄 라지 백팩_블랙"},{"code":"424BG633BR","name":"스케줄 라지 백팩_브라운"},{"code":"424BG633GY","name":"스케줄 라지 백팩_그레이"},{"code":"424BG634BE","name":"인사이트 크로스백_버터베이지"},{"code":"424BG634BK","name":"인사이트 크로스백_블랙"},{"code":"424BG634BR","name":"인사이트 크로스백_브라운"},{"code":"424BG634GY","name":"인사이트 크로스백_그레이"},{"code":"424BG636BE","name":"아젠다 스몰백_버터 베이지"},{"code":"424BG636BK","name":"아젠다 스몰백_블랙"},{"code":"424BG636BR","name":"아젠다 스몰백_브라운"},{"code":"424BG636GY","name":"아젠다 스몰백_그레이"},{"code":"424BG637BE","name":"아젠다 미듐백_버터 베이지"},{"code":"424BG637BK","name":"아젠다 미듐백_블랙"},{"code":"424BG637BR","name":"아젠다 미듐백_브라운"},{"code":"425CD684BK","name":"더블웨이 가디건_블랙"},{"code":"425CD684BL","name":"더블웨이 가디건_피콕 블루"},{"code":"425CD684BR","name":"더블웨이 가디건_브라운"},{"code":"425CD684GY","name":"더블웨이 가디건_그레이"},{"code":"425CD684PP","name":"더블웨이 가디건_퍼플"},{"code":"425HW685BK","name":"브러쉬드 블렌드 비니_블랙"},{"code":"425HW685GN","name":"브러쉬드 블렌드 비니_틸 그린"},{"code":"425HW685GY","name":"브러쉬드 블렌드 비니_그레이"},{"code":"425HW685LB","name":"브러쉬드 블렌드 비니_라이트 블루"},{"code":"425HW685LE","name":"브러쉬드 블렌드 비니_레몬"},{"code":"425HW685PP","name":"브러쉬드 블렌드 비니_라이트 퍼플"},{"code":"425SK683BK","name":"모듈러 랩스커트_블랙"},{"code":"425SK683DP","name":"모듈러 랩스커트_다크 퍼플"},{"code":"425SK683GY","name":"모듈러 랩스커트_그레이"},{"code":"425SK683LB","name":"모듈러 랩스커트_라이트 블루"},{"code":"425SK683NV","name":"모듈러 랩스커트_네이비"},{"code":"425ST682DP","name":"브러쉬드 블렌드 풀오버_딥 퍼플"},{"code":"425ST682GN","name":"브러쉬드 블렌드 풀오버_틸 그린"},{"code":"425ST682GY","name":"브러쉬드 블렌드 풀오버_그레이"},{"code":"425ST682LE","name":"브러쉬드 블렌드 풀오버_레몬"},{"code":"425ST682PP","name":"브러쉬드 블렌드 풀오버_라이트 퍼플"},{"code":"ACOC","name":"기타거래용"},{"code":"XXX","name":"기타샘플"}];
+
+// ── State ─────────────────────────────────────────────────────────────────
+// Firebase 연동: window.orders / window.customProducts 로 전역 관리
+window.orders = JSON.parse(localStorage.getItem('acoc_reorders_v2') || '[]');
+window.customProducts = JSON.parse(localStorage.getItem('acoc_custom_products') || '[]');
+let currentFilter = 'all';
+let modalProducts = [];
+let modalEditId = null;
+let acSelectedIdx = -1;
+
+function allProducts() {
+  return [...PRODUCTS, ...customProducts];
+}
+
+// ── Date utils ────────────────────────────────────────────────────────────
+function today() { return new Date().toISOString().split('T')[0]; }
+function fmtDate(d) {
+  if (!d) return '—';
+  const [y,m,day] = d.split('-');
+  return `${y.slice(2)}.${m}.${day}`;
+}
+
+// ── Status ────────────────────────────────────────────────────────────────
+function getStatus(o) {
+  // 수동으로 설정된 상태 우선 적용
+  if (o.status === 'arrived') return 'arrived';
+  if (o.status === 'overdue') return 'overdue';
+  // pending이거나 미설정 → 날짜로 자동 판단
+  if (!o.arrivalDate) return 'pending';
+  const now = new Date(); now.setHours(0,0,0,0);
+  const arr = new Date(o.arrivalDate); arr.setHours(0,0,0,0);
+  return arr < now ? 'overdue' : 'pending';
+}
+
+function calcDday(o) {
+  if (o.status === 'arrived' || !o.arrivalDate) return null;
+  const now = new Date(); now.setHours(0,0,0,0);
+  const arr = new Date(o.arrivalDate); arr.setHours(0,0,0,0);
+  return Math.ceil((arr - now) / 86400000);
+}
+
+function statusBadge(o) {
+  const s = getStatus(o);
+  const m = {pending:['badge-pending','입고 대기'], arrived:['badge-arrived','입고 완료'], overdue:['badge-overdue','지연']};
+  return `<span class="badge ${m[s][0]}">${m[s][1]}</span>`;
+}
+
+function ddayChip(o) {
+  if (o.status === 'arrived') return '';
+  const d = calcDday(o);
+  if (d === null) return '<span class="dday dday-none">미정</span>';
+  if (d < 0)  return `<span class="dday dday-over">D+${Math.abs(d)}</span>`;
+  if (d <= 3) return `<span class="dday dday-soon">D-${d}</span>`;
+  return `<span class="dday dday-ok">D-${d}</span>`;
+}
+
+function totalQty(o) {
+  return (o.items||[]).reduce((s,i) => s + (parseInt(i.qty)||0), 0);
+}
+
+// ── Render items (collapsed / expanded) ──────────────────────────────────
+function itemsHTML(o) {
+  if (!o.items || o.items.length === 0) return '<span style="color:var(--text-sub);font-size:12px">—</span>';
+  const MAX = 3;
+  const show = o.expanded ? o.items : o.items.slice(0, MAX);
+  const rows = show.map(i => `
+    <div class="item-row">
+      <span class="item-code">${i.code}</span>
+      <span class="item-name">${i.name}</span>
+      <span class="item-qty">${Number(i.qty).toLocaleString()}개</span>
+    </div>`).join('');
+  const more = o.items.length > MAX
+    ? `<span class="items-expand-btn" onclick="toggleExpand('${o.id}',event)">
+        ${o.expanded ? '▲ 접기' : `▼ +${o.items.length - MAX}개 더 보기`}
+       </span>` : '';
+  return `<div class="items-preview">${rows}${more}</div>`;
+}
+
+function toggleExpand(id, e) {
+  e.stopPropagation();
+  const o = orders.find(x => x.id === id);
+  if (o) { o.expanded = !o.expanded; render(); }
+}
+
+// ── Render table ──────────────────────────────────────────────────────────
+function render() {
+  const tbody = document.getElementById('table-body');
+  const empty = document.getElementById('empty-state');
+
+  let filtered = orders;
+  if (currentFilter !== 'all') filtered = orders.filter(o => getStatus(o) === currentFilter);
+
+  // 검색 필터
+  const searchEl = document.getElementById('search-input');
+  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  const clearBtn = document.getElementById('search-clear');
+  if (clearBtn) clearBtn.style.display = q ? '' : 'none';
+  if (q) {
+    filtered = filtered.filter(o =>
+      (o.items || []).some(i =>
+        i.code.toLowerCase().includes(q) ||
+        i.name.toLowerCase().includes(q)
+      )
+    );
+  }
+
+  // orderId 파싱: "2026/04/21-5" → 정렬 키 "20260421-05"
+  function orderKey(o) {
+    const id = (o.orderId || '9999/12/31-99').replace(/[\/\-\s]/g, '');
+    // 숫자만 추출해서 날짜8자리 + 시퀀스 패딩
+    const m = (o.orderId || '').match(/(\d{4})[\/\-]?(\d{2})[\/\-]?(\d{2})[\/\-\s]*(\d+)$/);
+    if (m) return `${m[1]}${m[2]}${m[3]}-${m[4].padStart(4,'0')}`;
+    return id;
+  }
+
+  filtered = [...filtered].sort((a, b) => {
+    const sa = getStatus(a), sb = getStatus(b);
+    // 입고완료는 항상 맨 아래
+    if (sa === 'arrived' && sb !== 'arrived') return 1;
+    if (sb === 'arrived' && sa !== 'arrived') return -1;
+    // 나머지는 발주번호(날짜+시퀀스) 내림차순 (최신이 맨 위)
+    return orderKey(a) < orderKey(b) ? 1 : orderKey(a) > orderKey(b) ? -1 : 0;
+  });
+
+  empty.style.display = filtered.length === 0 ? 'block' : 'none';
+
+  tbody.innerHTML = filtered.map(o => `
+    <tr data-id="${o.id}">
+      <td class="center">
+        <input type="checkbox" class="row-select" data-id="${o.id}"
+          onchange="updateDeleteBtn()"
+          title="선택">
+      </td>
+      <td><span class="order-id">${o.orderId || '—'}</span></td>
+      <td style="font-size:12px;white-space:nowrap">${o.supplier||'—'}</td>
+      <td class="items-cell">${itemsHTML(o)}</td>
+      <td class="num" style="font-weight:600">${totalQty(o).toLocaleString()}</td>
+      <td>
+        <input type="date" class="inline-date" value="${o.arrivalDate||''}"
+          onchange="inlineUpdate('${o.id}','arrivalDate',this.value)"
+          title="입고 예정일">
+      </td>
+      <td>
+        <input type="date" class="inline-date" value="${o.shipDate||''}"
+          onchange="inlineUpdate('${o.id}','shipDate',this.value)"
+          title="예약배송일">
+      </td>
+      <td>${ddayChip(o)}</td>
+      <td>
+        <select class="inline-select" onchange="inlineUpdate('${o.id}','status',this.value)">
+          <option value="pending"  ${getStatus(o)==='pending'  ? 'selected':''}>입고 대기</option>
+          <option value="arrived"  ${getStatus(o)==='arrived'  ? 'selected':''}>입고 완료</option>
+          <option value="overdue"  ${getStatus(o)==='overdue'  ? 'selected':''}>지연</option>
+        </select>
+      </td>
+      <td>
+        <textarea class="inline-memo" rows="1"
+          onchange="inlineUpdate('${o.id}','memo',this.value)"
+          oninput="autoResize(this)"
+          onblur="autoResize(this)"
+          placeholder="메모..." title="${o.memo||''}">${(o.memo||'').replace(/</g,'&lt;')}</textarea>
+      </td>
+    </tr>`).join('');
+
+  updateStats();
+  // 메모 textarea 높이 초기화
+  setTimeout(() => {
+    document.querySelectorAll('.inline-memo').forEach(el => autoResize(el));
+  }, 0);
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = orders.length;
+  document.getElementById('stat-pending').textContent = orders.filter(o=>getStatus(o)==='pending').length;
+  document.getElementById('stat-arrived').textContent = orders.filter(o=>getStatus(o)==='arrived').length;
+  document.getElementById('stat-overdue').textContent = orders.filter(o=>getStatus(o)==='overdue').length;
+}
+
+function save() {
+  // localStorage 저장 (백업용)
+  try {
+    localStorage.setItem('acoc_reorders_v2', JSON.stringify(orders));
+  } catch(e) {
+    console.warn('localStorage save failed:', e);
+  }
+  // Firebase 저장 (메인)
+  if (window._fbSave) {
+    window._fbSave(orders, undefined);
+    const ind = document.getElementById('save-indicator');
+    if (ind) {
+      ind.textContent = '🔥 저장됨';
+      ind.style.color = 'var(--green)';
+      clearTimeout(ind._t);
+      ind._t = setTimeout(() => {
+        ind.textContent = '🔥 연결됨 (' + orders.length + '건)';
+      }, 2000);
+    }
+  } else {
+    // Firebase 미연결 시 localStorage만
+    const ind = document.getElementById('save-indicator');
+    if (ind) {
+      ind.textContent = '✓ 저장됨 (로컬)';
+      ind.style.color = 'var(--text-sub)';
+      clearTimeout(ind._t);
+      ind._t = setTimeout(() => { ind.textContent = ''; }, 2000);
+    }
+  }
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────
+function clearSearch() {
+  const el = document.getElementById('search-input');
+  if (el) { el.value = ''; el.focus(); }
+  render();
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // stat 카드 active 동기화
+  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active-filter'));
+  const map = {all:'total', pending:'pending', arrived:'arrived', overdue:'overdue'};
+  document.querySelector(`.stat-card.${map[f]}`)?.classList.add('active-filter');
+  render();
+}
+
+function setFilterById(f) {
+  currentFilter = f;
+  // 필터 버튼 동기화
+  const labelMap = {all:'전체', pending:'입고 대기', arrived:'입고 완료', overdue:'지연'};
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === labelMap[f]);
+  });
+  // stat 카드 active 동기화
+  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active-filter'));
+  const map = {all:'total', pending:'pending', arrived:'arrived', overdue:'overdue'};
+  document.querySelector(`.stat-card.${map[f]}`)?.classList.add('active-filter');
+  render();
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────
+function toggleArrived(id, checked) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  o.status = checked ? 'arrived' : 'pending';
+  save(); render();
+  showToast(checked ? '✓ 입고 완료 처리됐습니다' : '대기 상태로 변경됐습니다');
+}
+
+function toggleSelectAll(cb) {
+  document.querySelectorAll('.row-select').forEach(el => el.checked = cb.checked);
+  updateDeleteBtn();
+}
+
+function updateDeleteBtn() {
+  const checked = document.querySelectorAll('.row-select:checked');
+  const btn = document.getElementById('delete-selected-btn');
+  const cnt = document.getElementById('delete-count');
+  if (checked.length > 0) {
+    btn.style.display = '';
+    cnt.textContent = `(${checked.length}건)`;
+  } else {
+    btn.style.display = 'none';
+  }
+  // 전체선택 체크박스 동기화
+  const all = document.querySelectorAll('.row-select');
+  const selectAll = document.getElementById('select-all');
+  if (selectAll) selectAll.checked = all.length > 0 && checked.length === all.length;
+}
+
+function deleteSelected() {
+  const checked = document.querySelectorAll('.row-select:checked');
+  if (!checked.length) return;
+  if (!confirm(`선택한 ${checked.length}건을 삭제하시겠습니까?`)) return;
+  const ids = new Set([...checked].map(el => el.dataset.id));
+  orders = orders.filter(o => !ids.has(o.id));
+  save(); render();
+  showToast(`${ids.size}건 삭제됐습니다`);
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+function inlineUpdate(id, field, value) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  o[field] = value;
+  save();
+  if (field === 'status') {
+    const labels = { arrived:'✓ 입고 완료', overdue:'지연으로 변경됐습니다', pending:'입고 대기로 변경됐습니다' };
+    showToast(labels[value] || '저장됐습니다');
+  }
+  render();
+}
+
+function deleteOrder(id) {
+  if (!confirm('이 리오더를 삭제하시겠습니까?')) return;
+  orders = orders.filter(x => x.id !== id);
+  save(); render();
+  showToast('삭제됐습니다');
+}
+
+// ── Import zone ───────────────────────────────────────────────────────────
+function toggleImport() {
+  document.getElementById('import-zone').classList.toggle('hidden');
+}
+function dragOver(e) { e.preventDefault(); document.getElementById('import-zone').classList.add('drag-over'); }
+function dragLeave(e) { document.getElementById('import-zone').classList.remove('drag-over'); }
+function dropFiles(e) {
+  e.preventDefault();
+  document.getElementById('import-zone').classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
+}
+
+// ── xlsx parsing ──────────────────────────────────────────────────────────
+async function handleFiles(fileList) {
+  const files = Array.from(fileList);
+  if (!files.length) return;
+
+  const prog = document.getElementById('import-progress');
+  const list = document.getElementById('progress-list');
+  prog.classList.add('show');
+  list.innerHTML = '';
+
+  for (const file of files) {
+    const li = document.createElement('li');
+    li.className = 'progress-item';
+    li.textContent = `⏳ ${file.name} 처리중...`;
+    list.appendChild(li);
+
+    try {
+      const order = await parseEcountXlsx(file);
+      // 중복 전표번호 체크
+      if (orders.find(o => o.orderId && o.orderId === order.orderId)) {
+        li.className = 'progress-item err';
+        li.textContent = `⚠ ${file.name} — 전표번호 ${order.orderId} 이미 존재 (건너뜀)`;
+        continue;
+      }
+      orders.unshift(order);
+      const beforeSave = localStorage.getItem('acoc_reorders_v2');
+      save();
+      // 저장 검증: 실제로 저장됐는지 확인
+      const afterSave = localStorage.getItem('acoc_reorders_v2');
+      if (!afterSave || afterSave === beforeSave) {
+        orders.shift(); // 저장 실패 시 롤백
+        li.className = 'progress-item err';
+        li.textContent = `✗ ${file.name} — 저장 실패 (localStorage 문제)`;
+      } else {
+        li.className = 'progress-item ok';
+        li.textContent = `✓ ${file.name} — ${order.orderId} · ${order.items.length}SKU · 총 ${totalQty(order).toLocaleString()}개`;
+      }
+    } catch(err) {
+      li.className = 'progress-item err';
+      li.textContent = `✗ ${file.name} — ${err.message}`;
+    }
+  }
+
+  render();
+  document.getElementById('ecount-file-input').value = '';
+}
+
+function parseEcountXlsx(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+        if (rows.length < 2) throw new Error('데이터가 없습니다');
+
+        // ── 헤더 찾기 (이카운트 발주서 상세 컬럼 자동 감지) ──
+        // 이카운트 발주서 상세: 품목코드, 품목명, 수량, 납기일, 거래처, 발주일 등
+        let headerRow = -1;
+        let headers = [];
+
+        // ── 전표번호(일련번호) / 납기일자 / 수신(거래처) — 헤더 영역에서 추출 ──
+        // ── 헤더 영역 raw 스캔 (SheetJS 중복값 넘버링 우회) ──
+        // sheet_to_json 대신 셀 주소로 직접 읽어서 "(2)" 오염 방지
+        function rawCell(ws, col, row) {
+          const addr = XLSX.utils.encode_cell({c: col, r: row});
+          const cell = ws[addr];
+          return cell ? String(cell.v || '').trim() : '';
+        }
+
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:Z50');
+        const maxRow = Math.min(range.e.r, 20);
+        const maxCol = Math.min(range.e.c, 15);
+
+        let orderId = '';
+        let arrivalDate = '';
+        let supplier = '';
+        let reqDate = '';
+
+        for (let ri = 0; ri <= maxRow; ri++) {
+          // 행 전체를 raw 값으로 읽기
+          const rowVals = [];
+          for (let ci = 0; ci <= maxCol; ci++) rowVals.push(rawCell(ws, ci, ri));
+          const joined = rowVals.join(' ');
+
+          // 전표번호 / 일련번호 추출
+          // 케이스 1: 같은 셀에 "전표번호 : 20260421-5" 형태
+          // 케이스 2: 라벨 셀 + 값 셀 분리
+          // 케이스 3: 날짜-번호 패턴만 있는 경우 ("2026/04/21 -5")
+          if (!orderId) {
+            // 케이스 1 — 셀 하나에 라벨+값 같이 있는 경우
+            for (const val of rowVals) {
+              if (!val) continue;
+              const m = val.match(/(?:전표번호|일련번호)\s*[:：]?\s*(.+)/);
+              if (m) { orderId = m[1].trim(); break; }
+            }
+            // 케이스 2 — 라벨 셀 따로, 값 셀 따로
+            if (!orderId) {
+              const labelIdx = rowVals.findIndex(c => c === '일련번호' || c === '전표번호');
+              if (labelIdx >= 0) {
+                for (let ci = labelIdx + 1; ci <= maxCol; ci++) {
+                  const cand = rawCell(ws, ci, ri).trim();
+                  if (cand) { orderId = cand; break; }
+                }
+              }
+            }
+            // 케이스 3 — 날짜-번호 패턴 직접 감지 ("2026/04/21 -5" 또는 "20260421-5")
+            if (!orderId) {
+              const m = joined.match(/(\d{4}[\/\-]?\d{2}[\/\-]?\d{2}\s*-\s*\d+)/);
+              if (m) orderId = m[1].replace(/\s+/g, '');
+            }
+          }
+
+          // 납기일자
+          if (!arrivalDate) {
+            const m = joined.match(/납기일\s*[자기]?\s*[:：]?\s*(\d{4}[\/\-]\d{2}[\/\-]\d{2})/);
+            if (m) arrivalDate = parseExcelDate(m[1]);
+            // "납기일자" 라벨 옆 셀
+            const lIdx = rowVals.findIndex(c => c.includes('납기일'));
+            if (lIdx >= 0 && !arrivalDate) {
+              for (let ci = lIdx + 1; ci <= maxCol; ci++) {
+                const cand = rawCell(ws, ci, ri).trim();
+                if (cand) { arrivalDate = parseExcelDate(cand); break; }
+              }
+            }
+          }
+
+          // 수신(거래처) — 여러 형태 처리
+          // 케이스 1: "수신·거래처 : (주)리라이코리아" — 라벨+값 같은 셀
+          // 케이스 2: "수신 (주)리라이코리아" — 공백 구분
+          // 케이스 3: 라벨 셀 따로, 값 셀 따로
+          if (!supplier) {
+            for (const val of rowVals) {
+              if (!val) continue;
+              // 콜론 구분: "수신·거래처 : 값" 또는 "수신 : 값" 또는 "거래처 : 값"
+              const m = val.match(/(?:수신|거래처|업체명)[^:：]*[:：]\s*(.+)/);
+              if (m && m[1].trim()) { supplier = m[1].trim(); break; }
+              // 공백 구분: "수신 값"
+              const m2 = val.match(/^(?:수신|거래처)\s+(.+)/);
+              if (m2 && m2[1].trim()) { supplier = m2[1].trim(); break; }
+            }
+            // 라벨 셀 + 값 셀 분리
+            if (!supplier) {
+              const sIdx = rowVals.findIndex(c =>
+                c === '수신' || c === '거래처' || c === '업체명' ||
+                c.startsWith('수신') || c.startsWith('거래처')
+              );
+              if (sIdx >= 0) {
+                for (let ci = sIdx + 1; ci <= maxCol; ci++) {
+                  const cand = rawCell(ws, ci, ri).trim();
+                  if (cand && !/^(수신|거래처|업체명)/.test(cand)) { supplier = cand; break; }
+                }
+              }
+            }
+          }
+
+          // 컬럼 헤더 행 감지
+          if (rowVals.some(h => h.includes('품목코드'))) {
+            headerRow = ri; headers = rowVals;
+          }
+        }
+
+        if (headerRow < 0) throw new Error('품목코드 컬럼을 찾을 수 없습니다');
+
+        const idx = (keywords) => {
+          for (const kw of keywords) {
+            const i = headers.findIndex(h => h.includes(kw));
+            if (i >= 0) return i;
+          }
+          return -1;
+        };
+
+        const codeIdx    = idx(['품목코드','코드']);
+        const nameIdx    = idx(['품목명','상품명','품명']);
+        const qtyIdx     = idx(['수량','발주수량','주문수량']);
+        const arrivalIdx = idx(['납기일','입고예정','납기']);
+        const supplierIdx= idx(['거래처','업체명','공급처','거래처명']);
+        const reqDateIdx = idx(['발주일','주문일','일자','요청일']);
+
+        if (codeIdx < 0) throw new Error('품목코드 컬럼 없음');
+        if (qtyIdx < 0)  throw new Error('수량 컬럼 없음');
+
+        const items = [];
+
+        for (let i = headerRow + 1; i < rows.length; i++) {
+          const row = rows[i];
+          const code = String(row[codeIdx] || '').trim();
+          const qty  = parseInt(row[qtyIdx]) || 0;
+          if (!code || qty <= 0) continue;
+
+          // 납기일 파싱
+          if (arrivalIdx >= 0 && !arrivalDate && row[arrivalIdx]) {
+            arrivalDate = parseExcelDate(row[arrivalIdx]);
+          }
+          // 거래처
+          if (supplierIdx >= 0 && !supplier && row[supplierIdx]) {
+            supplier = String(row[supplierIdx]).trim();
+          }
+          // 발주일
+          if (reqDateIdx >= 0 && !reqDate && row[reqDateIdx]) {
+            reqDate = parseExcelDate(row[reqDateIdx]);
+          }
+
+          const name = nameIdx >= 0 ? String(row[nameIdx]||'').trim() : (PRODUCTS.find(p=>p.code===code)?.name || code);
+          items.push({ code, name, qty });
+        }
+
+        if (items.length === 0) throw new Error('유효한 품목이 없습니다');
+
+        const finalReqDate = reqDate || today();
+        const finalOrderId = orderId || file.name.replace(/\.xlsx?$/i,'');
+
+        resolve({
+          id: 'ro_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+          orderId: finalOrderId,
+          reqDate: finalReqDate,
+          arrivalDate,
+          supplier,
+          memo: '',
+          items,
+          status: 'pending',
+          source: 'import',
+          createdAt: new Date().toISOString()
+        });
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error('파일 읽기 실패'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function parseExcelDate(val) {
+  if (!val) return '';
+  // JS Date object (from cellDates:true)
+  if (val instanceof Date) {
+    return val.toISOString().split('T')[0];
+  }
+  const s = String(val).trim();
+  // 2026/06/29 or 2026-06-29 or 26/06/29
+  const m = s.match(/(\d{2,4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/);
+  if (m) {
+    let y = m[1]; if (y.length === 2) y = '20' + y;
+    return `${y}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  }
+  // Excel serial number
+  const n = parseInt(s);
+  if (!isNaN(n) && n > 40000) {
+    const d = new Date(Math.round((n - 25569) * 86400 * 1000));
+    return d.toISOString().split('T')[0];
+  }
+  return '';
+}
+
+// ── Modal (직접 추가 / 수정) ──────────────────────────────────────────────
+function openAddModal() {
+  modalEditId = null; modalProducts = [];
+  document.getElementById('modal-title').textContent = '리오더 직접 추가';
+  document.getElementById('m-order-id').value = '';
+  document.getElementById('m-req-date').value = today();
+  document.getElementById('m-arrival-date').value = '';
+  document.getElementById('m-ship-date').value = '';
+  document.getElementById('m-supplier').value = '';
+  document.getElementById('m-memo').value = '';
+  document.getElementById('modal-product-search').value = '';
+  document.getElementById('modal-product-qty').value = '';
+  renderModalProducts();
+  document.getElementById('modal').classList.add('open');
+}
+
+function openEditModal(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  modalEditId = id;
+  modalProducts = o.items.map(i => ({...i}));
+  document.getElementById('modal-title').textContent = `수정 — ${o.orderId || ''}`;
+  document.getElementById('m-order-id').value = o.orderId || '';
+  document.getElementById('m-req-date').value = o.reqDate || today();
+  document.getElementById('m-arrival-date').value = o.arrivalDate || '';
+  document.getElementById('m-ship-date').value = o.shipDate || '';
+  document.getElementById('m-supplier').value = o.supplier || '';
+  document.getElementById('m-memo').value = o.memo || '';
+  document.getElementById('modal-product-search').value = '';
+  document.getElementById('modal-product-qty').value = '';
+  renderModalProducts();
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  document.getElementById('modal-ac-list').classList.remove('open');
+}
+
+function saveModal() {
+  const orderId     = document.getElementById('m-order-id').value.trim();
+  const reqDate     = document.getElementById('m-req-date').value;
+  const arrivalDate = document.getElementById('m-arrival-date').value;
+  const shipDate    = document.getElementById('m-ship-date').value;
+  const supplier    = document.getElementById('m-supplier').value.trim();
+  const memo        = document.getElementById('m-memo').value.trim();
+  if (!orderId) { alert('전표번호를 입력해주세요'); return; }
+  if (!reqDate) { alert('요청일을 입력해주세요'); return; }
+  if (modalProducts.length === 0) { alert('상품을 하나 이상 추가해주세요'); return; }
+
+  if (modalEditId) {
+    const o = orders.find(x => x.id === modalEditId);
+    if (o) { o.orderId=orderId; o.reqDate=reqDate; o.arrivalDate=arrivalDate; o.shipDate=shipDate; o.supplier=supplier; o.memo=memo; o.items=modalProducts; }
+  } else {
+    orders.unshift({ id:'ro_'+Date.now(), orderId, reqDate, arrivalDate, shipDate, supplier, memo, items:modalProducts, status:'pending', source:'manual', createdAt:new Date().toISOString() });
+  }
+  save(); render(); closeModal();
+  showToast(modalEditId ? '수정됐습니다' : '리오더가 추가됐습니다');
+}
+
+function renderModalProducts() {
+  const el = document.getElementById('modal-products-list');
+  if (modalProducts.length === 0) {
+    el.innerHTML = '<div style="padding:12px;font-size:12px;color:var(--text-sub);text-align:center">상품을 추가해주세요</div>';
+    return;
+  }
+  el.innerHTML = modalProducts.map((p,i) => `
+    <div class="modal-product-row">
+      <span class="modal-product-code">${p.code}</span>
+      <span class="modal-product-name">${p.name}</span>
+      <div class="modal-product-qty">
+        <input type="number" value="${p.qty}" min="1" onchange="modalProducts[${i}].qty=parseInt(this.value)||1">
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="removeModalProduct(${i})">✕</button>
+    </div>`).join('');
+}
+
+function removeModalProduct(i) { modalProducts.splice(i,1); renderModalProducts(); }
+
+function addModalProduct() {
+  const searchEl = document.getElementById('modal-product-search');
+  const qtyEl = document.getElementById('modal-product-qty');
+  const raw = searchEl.value.trim();
+  const qty = parseInt(qtyEl.value) || 1;
+  if (!raw) return;
+
+  let p = null;
+
+  // 1) "코드 상품명" 형태로 붙어있는 경우 — 첫 토큰이 코드인지 확인
+  const firstToken = raw.split(/\s+/)[0];
+  p = allProducts().find(x => x.code.toLowerCase() === firstToken.toLowerCase());
+
+  // 2) 전체 문자열이 코드와 정확히 일치
+  if (!p) p = allProducts().find(x => x.code.toLowerCase() === raw.toLowerCase());
+
+  // 3) 부분 검색으로 첫 번째 결과
+  if (!p) {
+    const results = searchProducts(raw);
+    if (results.length) p = results[0];
+  }
+
+  if (!p) { alert('상품을 찾을 수 없습니다.\n자동완성 목록에서 선택하거나 코드를 정확히 입력해주세요.'); return; }
+  if (modalProducts.find(x => x.code === p.code)) { alert('이미 추가된 상품입니다'); return; }
+  modalProducts.push({code:p.code, name:p.name, qty});
+  renderModalProducts();
+  searchEl.value = ''; qtyEl.value = '';
+  document.getElementById('modal-ac-list').classList.remove('open');
+  document.getElementById('modal-product-search').focus();
+}
+
+// ── Autocomplete ──────────────────────────────────────────────────────────
+function searchProducts(q) {
+  if (!q) return [];
+  const lq = q.toLowerCase();
+  return allProducts().filter(p => p.code.toLowerCase().includes(lq) || p.name.toLowerCase().includes(lq)).slice(0,12);
+}
+function hl(text,q){
+  if(!q) return text;
+  const i=text.toLowerCase().indexOf(q.toLowerCase());
+  if(i<0) return text;
+  return text.slice(0,i)+`<span class="ac-highlight">${text.slice(i,i+q.length)}</span>`+text.slice(i+q.length);
+}
+function modalProductSearch(input) {
+  const q=input.value.trim();
+  const list=document.getElementById('modal-ac-list');
+  const res=searchProducts(q);
+  acSelectedIdx=-1;
+  if(!res.length){list.classList.remove('open');return;}
+  list.innerHTML=res.map((p,i)=>`<div class="autocomplete-item" data-idx="${i}" onmousedown="selectAc(${i})" onmouseover="acSelectedIdx=${i};hlAc()"><span class="ac-code">${hl(p.code,q)}</span><span class="ac-name">${hl(p.name,q)}</span></div>`).join('');
+  list._res=res; list.classList.add('open');
+}
+function selectAc(idx){
+  const list=document.getElementById('modal-ac-list');
+  const p=list._res[idx];
+  document.getElementById('modal-product-search').value=p.code+' '+p.name;
+  document.getElementById('modal-product-search')._sel=p;
+  list.classList.remove('open');
+  const qty=parseInt(document.getElementById('modal-product-qty').value);
+  if(qty>0){
+    if(modalProducts.find(x=>x.code===p.code)){alert('이미 추가된 상품입니다');return;}
+    modalProducts.push({code:p.code,name:p.name,qty});
+    renderModalProducts();
+    document.getElementById('modal-product-search').value='';
+    document.getElementById('modal-product-qty').value='';
+  } else { document.getElementById('modal-product-qty').focus(); }
+}
+function hlAc(){document.querySelectorAll('#modal-ac-list .autocomplete-item').forEach((el,i)=>el.classList.toggle('selected',i===acSelectedIdx));}
+function modalProductKeydown(e){
+  const list=document.getElementById('modal-ac-list');
+  const items=list.querySelectorAll('.autocomplete-item');
+  if(!list.classList.contains('open'))return;
+  if(e.key==='ArrowDown'){e.preventDefault();acSelectedIdx=Math.min(acSelectedIdx+1,items.length-1);hlAc();}
+  else if(e.key==='ArrowUp'){e.preventDefault();acSelectedIdx=Math.max(acSelectedIdx-1,0);hlAc();}
+  else if(e.key==='Enter'){e.preventDefault();if(acSelectedIdx>=0&&list._res)selectAc(acSelectedIdx);else addModalProduct();}
+  else if(e.key==='Escape'){list.classList.remove('open');}
+}
+
+// ── Export CSV ────────────────────────────────────────────────────────────
+function exportCSV() {
+  const rows=[['발주번호','요청일','거래처','품목코드','품목명','수량','입고예정일','예약배송일','상태','메모']];
+  orders.forEach(o=>{
+    (o.items||[]).forEach(item=>{
+      rows.push([o.orderId||'',o.reqDate,o.supplier||'',item.code,item.name,item.qty,o.arrivalDate||'',o.shipDate||'',getStatus(o),o.memo||'']);
+    });
+  });
+  const csv='\uFEFF'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`acoc_reorder_${today()}.csv`; a.click();
+}
+
+// ── Product Management ────────────────────────────────────────────────────
+function openProductModal() {
+  renderCustomProductList();
+  document.getElementById('product-modal').classList.add('open');
+  document.getElementById('new-product-code').focus();
+}
+
+function closeProductModal() {
+  document.getElementById('product-modal').classList.remove('open');
+}
+
+function addCustomProduct() {
+  const code = document.getElementById('new-product-code').value.trim();
+  const name = document.getElementById('new-product-name').value.trim();
+  if (!code) { alert('상품코드를 입력해주세요'); return; }
+  if (!name) { alert('상품명을 입력해주세요'); return; }
+  if (allProducts().find(p => p.code.toLowerCase() === code.toLowerCase())) {
+    alert('이미 등록된 상품코드입니다'); return;
+  }
+  customProducts.push({ code, name, custom: true });
+  localStorage.setItem('acoc_custom_products', JSON.stringify(customProducts));
+  if (window._fbSave) window._fbSave(undefined, customProducts);
+  document.getElementById('new-product-code').value = '';
+  document.getElementById('new-product-name').value = '';
+  document.getElementById('new-product-code').focus();
+  renderCustomProductList();
+  showToast(`${code} 등록됐습니다`);
+}
+
+function deleteCustomProduct(code) {
+  if (!confirm(`${code} 상품을 삭제하시겠습니까?`)) return;
+  customProducts = customProducts.filter(p => p.code !== code);
+  localStorage.setItem('acoc_custom_products', JSON.stringify(customProducts));
+  if (window._fbSave) window._fbSave(undefined, customProducts);
+  renderCustomProductList();
+  showToast('삭제됐습니다');
+}
+
+function renderCustomProductList() {
+  const el = document.getElementById('custom-product-list');
+  const cnt = document.getElementById('custom-product-count');
+  cnt.textContent = customProducts.length ? `(${customProducts.length}개)` : '';
+  if (!customProducts.length) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-sub)">등록된 신규 상품이 없습니다</div>';
+    return;
+  }
+  el.innerHTML = customProducts.map(p => `
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);">
+      <span style="font-family:monospace;font-size:12px;font-weight:600;color:var(--text);min-width:130px">${p.code}</span>
+      <span style="font-size:13px;color:var(--text-sub);flex:1">${p.name}</span>
+      <span style="font-size:11px;background:var(--blue-bg);color:var(--blue);padding:2px 6px;border-radius:4px;flex-shrink:0">신규</span>
+      <button class="btn btn-sm" onclick="deleteCustomProduct('${p.code}')"
+        style="background:var(--red-bg);color:var(--red);border:1px solid #e8c0c0;flex-shrink:0">삭제</button>
+    </div>`).join('');
+}
+
+// 상품 모달 외부 클릭 닫기
+document.getElementById('product-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('product-modal')) closeProductModal();
+});
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// ── Event listeners ───────────────────────────────────────────────────────
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.product-input-wrap'))
+    document.querySelectorAll('.autocomplete-list').forEach(l=>l.classList.remove('open'));
+});
+document.getElementById('modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('modal')) closeModal();
+});
+
+
+// ── Backup for Firebase migration ────────────────────────────────────────
+function backupJSON() {
+  const savedOrders = JSON.parse(localStorage.getItem('acoc_reorders_v2') || '[]');
+  const savedProducts = JSON.parse(localStorage.getItem('acoc_custom_products') || '[]');
+  const data = {
+    orders: savedOrders,
+    customProducts: savedProducts,
+    exportedAt: new Date().toISOString(),
+    version: 2
+  };
+  const json = JSON.stringify(data, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = 'acoc_reorder_backup_' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+  alert('백업 완료! 다운로드된 JSON 파일을 GitHub Pages 버전에서 📂 복원 버튼으로 불러오세요.');
+}
+
+// ── Restore from JSON backup ──────────────────────────────────────────────
+function triggerRestore() {
+  document.getElementById('restore-file-input').click();
+}
+
+function restoreJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.orders || !Array.isArray(data.orders)) {
+        alert('올바른 백업 파일이 아닙니다.\nacoc_reorder_backup_*.json 파일을 선택해주세요.');
+        return;
+      }
+      const orderCount = data.orders.length;
+      const productCount = (data.customProducts || []).length;
+      if (!confirm(`백업 파일을 복원하시겠습니까?\n\n발주 데이터: ${orderCount}건\n신규 상품: ${productCount}개\n\n⚠️ 현재 데이터가 모두 덮어씌워집니다.`)) {
+        event.target.value = '';
+        return;
+      }
+      orders = data.orders;
+      customProducts = data.customProducts || [];
+      localStorage.setItem('acoc_reorders_v2', JSON.stringify(orders));
+      localStorage.setItem('acoc_custom_products', JSON.stringify(customProducts));
+      render();
+      showToast(`복원 완료! 발주 ${orderCount}건, 상품 ${productCount}개`);
+    } catch(err) {
+      alert('파일을 읽는 중 오류가 발생했습니다.\n' + err.message);
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ── Ecount file storage (base64 in localStorage) ──────────────────────────
+let ecountFiles = JSON.parse(localStorage.getItem('acoc_ecount_files') || '[]');
+
+function storeEcountFiles(fileList) {
+  const promises = Array.from(fileList).map(file => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      resolve({
+        id: Date.now() + '_' + Math.random().toString(36).slice(2,7),
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        savedAt: new Date().toISOString(),
+        data: e.target.result  // base64 data URL
+      });
+    };
+    reader.readAsDataURL(file);
+  }));
+
+  Promise.all(promises).then(newFiles => {
+    // 중복 파일명 처리 (덮어쓰기 확인)
+    newFiles.forEach(f => {
+      const existing = ecountFiles.findIndex(x => x.name === f.name);
+      if (existing >= 0) {
+        if (confirm(`"${f.name}" 파일이 이미 있습니다. 덮어쓰시겠습니까?`)) {
+          ecountFiles[existing] = f;
+        }
+      } else {
+        ecountFiles.push(f);
+      }
+    });
+    try {
+      localStorage.setItem('acoc_ecount_files', JSON.stringify(ecountFiles));
+    } catch(err) {
+      // localStorage 용량 초과 시 data 없이 메타만 저장
+      alert('저장 용량이 초과되었습니다. 오래된 파일을 삭제 후 다시 시도해주세요.');
+      return;
+    }
+    renderEcountFiles();
+    showToast(`${newFiles.length}개 파일이 보관됐습니다`);
+  });
+  document.getElementById('ecount-store-input').value = '';
+}
+
+function deleteEcountFile(id) {
+  const f = ecountFiles.find(x => x.id === id);
+  if (!f) return;
+  if (!confirm(`"${f.name}" 파일을 삭제하시겠습니까?`)) return;
+  ecountFiles = ecountFiles.filter(x => x.id !== id);
+  localStorage.setItem('acoc_ecount_files', JSON.stringify(ecountFiles));
+  renderEcountFiles();
+  showToast('삭제됐습니다');
+}
+
+function downloadEcountFile(id) {
+  const f = ecountFiles.find(x => x.id === id);
+  if (!f) return;
+  const a = document.createElement('a');
+  a.href = f.data;
+  a.download = f.name;
+  a.click();
+}
+
+function fmtFileSize(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
+}
+
+function fmtSavedAt(iso) {
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear().toString().slice(2)}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderEcountFiles() {
+  const listEl = document.getElementById('ecount-file-list');
+  const emptyEl = document.getElementById('ecount-file-empty');
+  const countEl = document.getElementById('ecount-file-count');
+
+  countEl.textContent = ecountFiles.length ? `(${ecountFiles.length}개)` : '';
+
+  if (!ecountFiles.length) {
+    listEl.innerHTML = '<div id="ecount-file-empty" style="padding:24px;text-align:center;font-size:12px;color:var(--text-sub)">저장된 발주서가 없습니다. 파일 추가 버튼을 눌러 업로드하세요.</div>';
+    return;
+  }
+
+  listEl.innerHTML = ecountFiles.map(f => {
+    const ext = f.name.split('.').pop().toUpperCase();
+    const extColor = ext === 'PDF' ? 'var(--red)' : ext === 'XLSX' || ext === 'XLS' ? 'var(--green)' : 'var(--blue)';
+    const extBg = ext === 'PDF' ? 'var(--red-bg)' : ext === 'XLSX' || ext === 'XLS' ? 'var(--green-bg)' : 'var(--blue-bg)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);">
+      <span style="font-size:10px;font-weight:700;background:${extBg};color:${extColor};padding:3px 6px;border-radius:4px;flex-shrink:0;min-width:34px;text-align:center">${ext}</span>
+      <span style="font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.name}">${f.name}</span>
+      <span style="font-size:11px;color:var(--text-sub);flex-shrink:0;white-space:nowrap">${fmtFileSize(f.size)}</span>
+      <span style="font-size:11px;color:var(--text-sub);flex-shrink:0;white-space:nowrap">${fmtSavedAt(f.savedAt)}</span>
+      <button class="btn btn-sm btn-outline" onclick="downloadEcountFile('${f.id}')" style="flex-shrink:0">⬇ 다운로드</button>
+      <button class="btn btn-sm" onclick="deleteEcountFile('${f.id}')" style="flex-shrink:0;background:var(--red-bg);color:var(--red);border:1px solid #e8c0c0">삭제</button>
+    </div>`;
+  }).join('');
+}
+
+// ── localStorage 가용 여부 초기 점검 ─────────────────────────────────────
+(function checkStorage() {
+  try {
+    localStorage.setItem('__acoc_test__', '1');
+    localStorage.removeItem('__acoc_test__');
+    // 로드된 데이터 수 표시
+    if (orders.length > 0) {
+      const ind = document.getElementById('save-indicator');
+      if (ind) {
+        ind.textContent = `저장됨 (${orders.length}건)`;
+        ind.style.color = 'var(--text-sub)';
+      }
+    }
+  } catch(e) {
+    setTimeout(() => {
+      const ind = document.getElementById('save-indicator');
+      if (ind) { ind.textContent = '⚠ 저장 불가 (시크릿 모드?)'; ind.style.color = 'var(--red)'; }
+      alert('⚠️ 이 브라우저에서는 localStorage를 사용할 수 없습니다.\n\n시크릿/프라이빗 모드이거나 브라우저 설정에서 차단된 경우 데이터가 저장되지 않습니다.\n\n일반 모드로 열어주세요.');
+    }, 500);
+  }
+})();
+
+renderEcountFiles();
+
+render();
+</script>
+</body>
+</html>
